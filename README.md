@@ -76,17 +76,17 @@ The data in the `\1.Pre-Processing\IntermediateData` folder; the output in the `
 Open `ResearchArchiveMasterThesis.Rproj` in RStudio.  
 If you only want to run the analyses yourself, subsequently run the `DataModelling.Rmd` file from the `Scripts` folder. This will create the two TXT files in the `\Results` folder.  
 If you also want to run the data cleaning, you may run the `DataCleaning.Rmd` file, from the `\1.Pre-Processing\Scripts` folder. This script will take data from the `\1.Pre-Processing\RawData` folder, save intermediate data in the `\1.Pre-Processing\IntermediateData` folder, and finally save the data to be used in the `DataModelling.Rmd` file to the `\Data` folder.  
-If you want to run the script to create the graphs in the \2.Post-Processing\Output folder, you may run the DescriptiveStatistics.Rmd file in the 2.Post-Processing\Scripts folder.  
+If you want to run the script to create the graphs in the `\2.Post-Processing\Output` folder, you may run the `DescriptiveStatistics.Rmd` file in the `2.Post-Processing\Scripts` folder.  
 You may find an Ethics Statement and software requirements in the `\RequirementsAndEthics` folder. 
 
 The PNG plots in the `\1.Post-Processing\SEMModelGraph` folder were created using the website 
 https://app.diagrams.net/  
 The files to adapt the plots end with `.drawio` in the same folder and can be opened using the website, or their desktop appplication. 
 
-This research archive is available at https://github.com/MagicXIV/ResearchArchiveMasterThesis.git  
-This site will be maintained for at least a month by the main researcher (contact details below). The archive is publically available.  
+This research archive is publically available at https://github.com/MagicXIV/ResearchArchiveMasterThesis.git  
+This site will be maintained for at least a month by the main researcher (contact details below). 
 
-Please note: The file `TIMSSMeantime.RData` in the `\1.Pre-Processing\IntermediateData` is not available on the Github repository due to the file size being too large. However, this file can be created by running the `DataCleaning.Rmd` file from the `\1.Pre-Processing\Scripts` folder. The `TIMSSMeantime.RData` file is not needed to run either the `DataModelling.Rmd` file from the Scripts folder or the `DescriptiveStatistics.Rmd` file from the `\2.Post-Processing\Output` folder.  
+Please note: The file `TIMSSMeantime.RData` in the `\1.Pre-Processing\IntermediateData` is not available on the Github repository due to the file size being too large. However, this file can be created by running the `DataCleaning.Rmd` file from the `\1.Pre-Processing\Scripts` folder. The `TIMSSMeantime.RData` file is not needed to run either the `DataModelling.Rmd` file from the `Scripts` folder or the `DescriptiveStatistics.Rmd` file from the `\2.Post-Processing\Output` folder.  
 
 ## License 
   
