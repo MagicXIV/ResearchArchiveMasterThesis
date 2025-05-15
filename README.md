@@ -5,12 +5,12 @@ Date of creation: 12/05/2025
 Purpose: A fully resproducible research archive containing all relevant information to 
 reproduce the results in my master thesis. With no need to change code.  
 
-The Study: First, both the TIMSS and PISA datasets were cleaned. Then, the data was split into two groups (50/50) to make a train and a test set. Then, a multi-group SEM model was fitted to the train data. The best fitting model based on certain fit statistics and other indicators (see the report for a full explanation) was chosen. Then, the best fitting multi-group SEM model was fitted to the Test data. This fit was then evaluated.  
+The Study: The aim of this research was to find out the effect of Motivation on Ability Estimates. This was done through a multi-group SEM model. First, both the TIMSS and PISA datasets were cleaned. Then, the data was split into two groups (50/50) to make a train and a test set. Afterwards, a multi-group SEM model was fitted to the train data. The best fitting model based on certain fit statistics and other indicators (see the report for a full explanation) was chosen. Next, the best fitting multi-group SEM model was fitted to the Test data. This fit was evaluated.  
 The Data: Both datasets are anonymous open access data from Large-Scale Assessment Studies on students: TIMSS (https://timss2019.org/international-database/) and PISA (https://www.oecd.org/en/data/datasets/pisa-2018-database.html)  
   
 
 ## Folder structure  
-ResearchArchiveMasterThesis
+ResearchArchiveMasterThesis  
 ├── 1.Pre-Processing  
 │   ├── IntermediateData  
 │   │   ├── PISAdata.RData  
@@ -69,25 +69,24 @@ ResearchArchiveMasterThesis
 └── ResearchArchiveMasterThesis.Rproj  
 
 
-All code (DataCleaning.Rmd, DescriptiveStatistics.Rmd, DataModelling.Rmd), README.md files, and DRAWIO files in the \1.Post-Processing\SEMModelGraph folder are human generated. 
-The data in the \1.Pre-Processing\IntermediateData folder; the output in the \1.Post-Processing\Output folder; and the TXT files in the \Results folder are project-generated. 
+All code (`DataCleaning.Rmd`, `DescriptiveStatistics.Rmd`, `DataModelling.Rmd`), `README.md` files, and DRAWIO files in the `\1.Post-Processing\SEMModelGraph` folder are human generated. 
+The data in the `\1.Pre-Processing\IntermediateData` folder; the output in the `\1.Post-Processing\Output folder`; and the TXT files in the `\Results` folder are project-generated. 
 
 ## How to use:
-Open ResearchArchiveMasterThesis.Rproj in RStudio.  
-If you only want to run the analyses yourself, subsequently run the DataModelling.Rmd file from the Scripts folder. This will create the two TXT files in the \Results folder.  
-If you also want to run the data cleaning, you may run the DataCleaning.Rmd file, from the \1.Pre-Processing\Scripts folder. This script will take data from the \1.Pre-Processing\RawData folder, save intermediate data in the \1.Pre-Processing\IntermediateData folder, and finally save the data to be used in the DataModelling.Rmd file to the \Data folder.  
+Open `ResearchArchiveMasterThesis.Rproj` in RStudio.  
+If you only want to run the analyses yourself, subsequently run the `DataModelling.Rmd` file from the `Scripts` folder. This will create the two TXT files in the `\Results` folder.  
+If you also want to run the data cleaning, you may run the `DataCleaning.Rmd` file, from the `\1.Pre-Processing\Scripts` folder. This script will take data from the `\1.Pre-Processing\RawData` folder, save intermediate data in the `\1.Pre-Processing\IntermediateData` folder, and finally save the data to be used in the `DataModelling.Rmd` file to the `\Data` folder.  
 If you want to run the script to create the graphs in the \2.Post-Processing\Output folder, you may run the DescriptiveStatistics.Rmd file in the 2.Post-Processing\Scripts folder.  
-You may find an Ethics Statement and software requirements in the \RequirementsAndEthics folder. 
+You may find an Ethics Statement and software requirements in the `\RequirementsAndEthics` folder. 
 
-The PNG plots in the \1.Post-Processing\SEMModelGraph folder were created using the website 
+The PNG plots in the `\1.Post-Processing\SEMModelGraph` folder were created using the website 
 https://app.diagrams.net/  
-The files to adapt the plots end with .drawio in the same folder and can be 
-opened using the website, or their desktop appplication. 
+The files to adapt the plots end with `.drawio` in the same folder and can be opened using the website, or their desktop appplication. 
 
 This research archive is available at https://github.com/MagicXIV/ResearchArchiveMasterThesis.git  
 This site will be maintained for at least a month by the main researcher (contact details below). The archive is publically available.  
 
-Please note: The file TIMSSMeantime.RData in the \1.Pre-Processing\IntermediateData is not available on the Github repository due to the file size being too large. However, this file can be created by running the DataCleaning.Rmd file from the \1.Pre-Processing\Scripts folder. The TIMSSMeantime.RData file is not needed to run either the DataModelling.Rmd file from the Scripts folder or the DescriptiveStatistics.Rmd file from the \2.Post-Processing\Output folder.  
+Please note: The file `TIMSSMeantime.RData` in the `\1.Pre-Processing\IntermediateData` is not available on the Github repository due to the file size being too large. However, this file can be created by running the `DataCleaning.Rmd` file from the `\1.Pre-Processing\Scripts` folder. The `TIMSSMeantime.RData` file is not needed to run either the `DataModelling.Rmd` file from the Scripts folder or the `DescriptiveStatistics.Rmd` file from the `\2.Post-Processing\Output` folder.  
 
 ## License 
   

@@ -40,10 +40,10 @@ in the Master Thesis. These are the plots, and the Means & SDs.
 │   └── SEMModelTIMSSOthers.png  
 └── README.md  
   
-The code (DescriptiveStatistics.Rmd) and the README.md file are human-generated. 
-The output in the Output folder is project-generated. 
+The code (`DescriptiveStatistics.Rmd`) and the `README.md` file are human-generated. 
+The output in the `\Output` folder is project-generated. 
 
-The PNG plots in the SEMModelGraph folder were created using the website 
+The PNG plots in the `\SEMModelGraph` folder were created using the website 
 https://app.diagrams.net/  
-The files to adapt the plots end with .drawio in the same folder and can be 
+The files to adapt the plots end with `.drawio` in the same folder and can be 
 opened using the website, or their desktop appplication. 
