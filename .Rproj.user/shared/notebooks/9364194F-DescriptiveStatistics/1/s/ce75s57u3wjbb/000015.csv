@@ -1,0 +1,55 @@
+"0","variables <- c(""PV1"", ""PV2"", ""PV3"", ""PV4"", ""PV5"")"
+"0",""
+"0","# Loop through PV1 to PV5 and create histograms if variable exists"
+"0","for (var in variables) {"
+"0","  if (var %in% names(data)) {"
+"0","    plot <- data %>%"
+"0","      filter(!is.na(.data[[var]])) %>%"
+"0","      ggplot(aes_string(x = var, fill = ""Set"")) +"
+"0","      geom_histogram(color = ""#e9ecef"", alpha = 0.5, position = 'identity') +"
+"0","      geom_vline(xintercept = 0, color = ""red"", linetype = 1, size = 0.5) +"
+"0","      scale_fill_manual(values = c(""Test"" = ""#69b3a2"", ""Train"" = ""#404080"")) +"
+"0","      facet_wrap(~ whichData, nrow = 2, scales = ""free_y"") +"
+"0","      theme_minimal() +"
+"0","      labs(x = paste(""Plausible Value"", sub(""PV"", """", var)), y = ""Count"", fill = ""Dataset"") +"
+"0","      theme(plot.title = element_text(face = ""bold""),"
+"0","            strip.text = element_text(face = ""bold""))"
+"0","    "
+"0","    # Display and save the plot"
+"0","    print(plot)"
+"0","    ggsave(paste0(var, ""_histogram.png""), plot, width = 8, height = 6, dpi = 300, path = ""../Output/"")"
+"0","    message(""Histogram created for "", var)"
+"0","  } else {"
+"0","    warning(""Variable "", var, "" not found in data. Skipping plot."")"
+"0","  }"
+"0","}"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"2","Histogram created for PV1
+"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"2","Histogram created for PV2
+"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"2","Histogram created for PV3
+"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"2","Histogram created for PV4
+"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"2","Histogram created for PV5
+"

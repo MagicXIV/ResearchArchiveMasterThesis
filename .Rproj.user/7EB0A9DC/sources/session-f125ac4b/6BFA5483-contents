@@ -1,0 +1,131 @@
+---
+title: "Data cleaning"
+author: "Jasmijn Bazen"
+date: "2025-02-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include = FALSE}
+packages <- c("dplyr", "haven", "tidyr")
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+
+# Splitting up the data in 2: Train and Test 
+```{r}
+rm(list = ls())
+load("../Data/data.RData") #TIMSS data
+load("../Data/PISAdata.RData") #PISA data
+
+#remove data object
+rm(data)
+```
+
+Delete people with missing response times
+```{r delete missing response times}
+# #see how many will be deleted
+# NAPISA <- sum(is.na(dataPISA$response_time)) / nrow(dataPISA) * 100
+# NATIMSS <- sum(is.na(dataTIMSS$response_time)) / nrow(dataTIMSS) * 100
+# NAPISA
+# NATIMSS
+# 
+# #delete them
+# dataPISA <- dataPISA %>% 
+#   filter(!is.na(response_time))
+# dataTIMSS <- dataTIMSS %>%
+#   filter(!is.na(response_time))
+```
+`r NAPISA`% of the PISA data and `r NATIMSS`% of the TIMSS data had missing response times and were deleted.
+
+```{r split into train and test}
+# Split all 4 datasets up into 2: train and test set
+
+# PISA 
+set.seed(123)
+samplePISANL <- sample(c(TRUE, FALSE), nrow(dataPISANL), replace=TRUE, prob=c(0.5,0.5))
+traindataPISANL  <- dataPISANL[samplePISANL, ]
+testdataPISANL   <- dataPISANL[!samplePISANL, ]
+
+set.seed(123)
+samplePISAOthers <- sample(c(TRUE, FALSE), nrow(dataPISAOthers), replace=TRUE, prob=c(0.5,0.5))
+traindataPISAOthers  <- dataPISAOthers[samplePISAOthers, ]
+testdataPISAOthers   <- dataPISAOthers[!samplePISAOthers, ]
+
+# TIMSS
+set.seed(123)
+sampleTIMSSNL <- sample(c(TRUE, FALSE), nrow(dataTIMSSNL), replace=TRUE, prob=c(0.5,0.5))
+traindataTIMSSNL  <- dataTIMSSNL[sampleTIMSSNL, ]
+testdataTIMSSNL   <- dataTIMSSNL[!sampleTIMSSNL, ]
+
+set.seed(123)
+sampleTIMSSOthers <- sample(c(TRUE, FALSE), nrow(dataTIMSSOthers), replace=TRUE, prob=c(0.5,0.5))
+traindataTIMSSOthers  <- dataTIMSSOthers[sampleTIMSSOthers, ]
+testdataTIMSSOthers   <- dataTIMSSOthers[!sampleTIMSSOthers, ]
+```
+
+
+Combine all test sets into one and all train sets into one
+```{r combine into train and test}
+# Combine all test sets into one, making a new variable whichData indicating from which dataset the data comes
+testdata <- bind_rows(
+  PISANL = testdataPISANL, 
+  PISAOthers = testdataPISAOthers, 
+  TIMSSNL = testdataTIMSSNL, 
+  TIMSSOthers = testdataTIMSSOthers, 
+  .id = "whichData"
+)
+
+# Combine all train sets into one
+traindata <- bind_rows(
+  PISANL = traindataPISANL,
+  PISAOthers = traindataPISAOthers,
+  TIMSSNL = traindataTIMSSNL,
+  TIMSSOthers = traindataTIMSSOthers,
+  .id = "whichData"
+)
+```
+
+```{r standardise variables}
+#standardise total_response_time
+traindata <- traindata %>%
+    group_by(whichData) %>%
+    mutate(across(c(mean_response_time, effort, normalisedperc_littletime, normalisedperc_muchtime, normalisedperc_missing_itemscores), 
+                  ~ scale(.x) %>% as.vector())) %>%
+    ungroup()
+
+    # mutate(across(where(is.numeric), ~ scale(.) %>% as.vector())) %>%
+    # ungroup()
+
+testdata <- testdata %>%
+    group_by(whichData) %>%
+    mutate(across(c(mean_response_time, effort, normalisedperc_littletime, normalisedperc_muchtime, normalisedperc_missing_itemscores), 
+                  ~ scale(.x) %>% as.vector())) %>%
+    ungroup()
+    # mutate(across(where(is.numeric), ~ scale(.) %>% as.vector())) %>%
+    # ungroup()
+
+
+traindata$whichData <- as.factor(traindata$whichData)
+testdata$whichData <- as.factor(testdata$whichData)
+```
+
+
+```{r}
+#save the data
+save(traindata, testdata, file = "../Data/TestTrainData.RData")
+```
+
+
+
+
+
+

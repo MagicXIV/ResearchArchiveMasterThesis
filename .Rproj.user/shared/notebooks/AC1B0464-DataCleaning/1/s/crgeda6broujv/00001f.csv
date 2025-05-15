@@ -1,0 +1,7 @@
+"0","#the log looks best again"
+"0",""
+"0","data <- data %>% dplyr::select(-perc_muchtime_sqrt, -perc_muchtime_cubert, -perc_muchtime_log, -perc_muchtime_ihs, -perc_muchtime_boxcox, -perc_muchtime_rank)"
+"0","  "
+"0","data$normalisedperc_muchtime <- log(data$perc_muchtime)"
+"0",""
+"0","data$normalisedperc_muchtime[data$normalisedperc_muchtime == -Inf] <- min(data$normalisedperc_muchtime[is.finite(data$normalisedperc_muchtime)], na.rm = TRUE)"

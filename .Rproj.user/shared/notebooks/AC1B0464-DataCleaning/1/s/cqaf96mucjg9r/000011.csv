@@ -1,0 +1,5 @@
+"0","best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda"
+"0","data$perc_littletime_boxcox <- (data$perc_littletime^best_lambda - 1) / best_lambda"
+"0","data$perc_littletime_rank <- qnorm(rank(data$perc_littletime, ties.method = ""average"") / (nrow(data) + 1))"
+"0",""
+"0","par(mfrow = c(3, 2))"

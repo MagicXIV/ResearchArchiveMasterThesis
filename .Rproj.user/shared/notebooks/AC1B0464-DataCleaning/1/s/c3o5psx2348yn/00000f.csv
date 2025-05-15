@@ -1,0 +1,3 @@
+"0","rm(list = ls())"
+"0","data <- readRDS(""../RawData/pisa18_m.RDS"")"
+"0","data <- data.frame(data)"

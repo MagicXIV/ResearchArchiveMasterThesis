@@ -1,0 +1,5 @@
+"0","data$perc_littletime_sqrt <- sqrt(data$perc_littletime)"
+"0","data$perc_littletime_cubert <- data$perc_littletime^(1/3)"
+"0","data$perc_littletime_log <- log(data$perc_littletime)"
+"0","data$perc_littletime_ihs <- asinh(data$perc_littletime)"
+"0","lambda <- boxcox(lm(perc_littletime +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))"

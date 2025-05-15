@@ -1,0 +1,9 @@
+"0","# Save the plot for LaTeX inclusion"
+"0","ggsave(""Effort_histogram.png"", EffortPlot, width = 8, height = 6, dpi = 300, "
+"0","       path = ""../Output/"")"
+"1","[38;5;255m`stat_bin()` using `bins = 30`. Pick better value with `binwidth`.[39m
+"
+"2","Warning:"
+"2"," [38;5;255mRemoved 3957 rows containing non-finite outside the scale range
+(`stat_bin()`).[39m
+"

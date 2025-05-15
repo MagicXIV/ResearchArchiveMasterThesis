@@ -1,0 +1,6 @@
+"0","rm(list = ls())"
+"0","load(""../IntermediateData/TIMSSdata.RData"") #TIMSS data"
+"0","load(""../IntermediateData/PISAdata.RData"") #PISA data"
+"0",""
+"0","#remove data object"
+"0","rm(data)"

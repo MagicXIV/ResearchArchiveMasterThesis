@@ -1,0 +1,1160 @@
+---
+title: "Data Cleaning"
+author: "Jasmijn Bazen"
+date: "2025-05-14"
+output: html_document
+---
+
+
+Welcome to the Data Cleaning File. It consists of three parts: cleaning the PISA Data, cleaning the TIMSS Data, and finally splitting them into the train and test data. 
+
+
+# PISA Data Cleaning
+
+
+```{r Libraries, include = FALSE}
+packages <- c( "MASS", "dplyr", "haven", "reshape2", "ggplot2", "tidyverse", "tidyr")
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+invisible(lapply(packages, library, character.only = TRUE))
+
+rm(installed_packages, packages)
+```
+Packages and version numbers used for all 3 scripts combined:
+gridExtra_2.3    
+hrbrthemes_0.8.7  
+lavaanPlot_0.8.1  
+lavaan_0.6-19 
+lubridate_1.9.3  
+forcats_1.0.0  
+stringr_1.5.1   
+purrr_1.0.2    
+readr_2.1.5     
+tidyr_1.3.1    
+tibble_3.2.1   
+tidyverse_2.0.0  
+ggplot2_3.5.1   
+reshape2_1.4.4  
+haven_2.5.4     
+dplyr_1.1.4    
+MASS_7.3-60.2
+
+# Getting the dataset ready 
+```{r Load Data, include=FALSE}
+rm(list = ls())
+data <- readRDS("../RawData/pisa18_m.RDS")
+data <- data.frame(data)
+```
+
+
+### Label countries differently
+  
+Austria	    AUT	40  
+Denmark	    DNK	208  
+England	    ENG	926  
+Finland	    FIN	246  
+France	    FRA	250  
+Germany	    DEU	276  
+Italy	      ITA	380  
+Netherlands	NLD	528  
+Portugal	  PRT	620  
+Spain	      ESP	724  
+Sweden    	SWE	752  
+
+BEL  Belgium  
+GRC  Greece  
+IRL  Ireland  
+GBR  United Kingdom  
+
+```{r Change Country Labels}
+# Create a new column 'country' based on the 'CNT' column with the corresponding country names
+data$country <- case_when(
+  data$CNT == "AUT"  ~ "Austria",
+  data$CNT == "DNK" ~ "Denmark",
+  data$CNT == "ENG" ~ "England",
+  data$CNT == "FIN" ~ "Finland",
+  data$CNT == "FRA" ~ "France",
+  data$CNT == "DEU" ~ "Germany",
+  data$CNT == "ITA" ~ "Italy",
+  data$CNT == "NLD" ~ "Netherlands",
+  data$CNT == "PRT" ~ "Portugal",
+  data$CNT == "ESP" ~ "Spain",
+  data$CNT == "SWE" ~ "Sweden",
+  data$CNT == "BEL" ~ "Belgium",
+  data$CNT == "GRC" ~ "Greece",
+  data$CNT == "IRL" ~ "Ireland",
+  data$CNT == "GBR" ~ "United Kingdom"
+)
+
+#filter only rows where country is known
+data <- data %>% 
+  filter(!is.na(country))
+```
+
+
+### Change response time to seconds, instead of milliseconds
+```{r response time to seconds}
+data <- data %>%
+  mutate(response_time = (data$response_time/1000))
+```
+
+### Make a unique student identifier based on CNTSCHID and CNTSTUID
+```{r unique student identifier}
+data <- data %>% 
+  mutate(person_id = paste(CNTSCHID, CNTSTUID, sep = "_"))
+```
+
+### Create Variables Needed for the Analysis
+```{r Create Variables}
+threshold <- quantile(data$response_time, probs = 0.10, na.rm = TRUE)
+threshold2 <- quantile(data$response_time, probs = 0.90, na.rm = TRUE)
+
+qq <- data %>%
+  mutate(item_score = ifelse(item_score> 2, NA, item_score)) %>%
+  group_by(person_id) %>%
+  summarise(booklet_size = n_distinct(item_id),
+            number_of_answered_items = sum(!is.na(item_score)),
+            total_response_time = sum(response_time, na.rm = TRUE),
+            mean_response_time = mean(response_time, na.rm = TRUE),
+            perc_missing_itemscores = mean(is.na(item_score)),
+            perc_missing_responsetimes = mean(is.na(response_time)),
+            perc_littletime = mean(response_time < threshold, na.rm = TRUE),
+            perc_muchtime = mean(response_time > threshold2, na.rm = TRUE),
+            .groups = "drop")
+
+#add the variables from qq to data
+data <- data %>%
+  left_join(qq, by = "person_id")
+
+rm(qq)
+```
+
+### Change PVs
+```{r First 5 PVs}
+# only keep first 5 PVs
+data <- data %>%
+  dplyr::select(-PV6MATH, -PV7MATH, -PV8MATH, -PV9MATH, -PV10MATH)
+
+#scale the PVs all together, so that their collective mean is 0 and their collective sd is 1 (previously mean 499, sd 87.8, code to calculate this in the comment below)
+# combined_values <- as.vector(as.matrix(data[, c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH")]))
+# mean(combined_values)  
+# sd(combined_values)
+
+#scale the PVs
+data[, c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH")] <- 
+  matrix(scale(as.vector(as.matrix(data[, c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH")]))),
+         nrow = nrow(data))
+
+#rename them to PV1 : PV5
+data <- data %>%
+  rename(PV1 = PV1MATH, PV2 = PV2MATH, PV3 = PV3MATH, PV4 = PV4MATH, PV5 = PV5MATH)
+```
+
+
+### Response times
+```{r RTs}
+summary(data$response_time)
+# 5min = 300 seconds, 5095 seconds = 1.4 hours -> re-code everything more than 15 minutes (= 900 seconds) to 900 seconds
+
+n_distinct(data$person_id[data$response_time > 900]) 
+#517 scores will be changed
+
+#change response times to 900 seconds if they are more than 900 seconds
+data <- data %>%
+  mutate(response_time = ifelse(response_time > 900,  # test
+                                900,                  # test = yes
+                                response_time))       # test = no
+
+#check response time distribution
+ggplot(data, aes(x = response_time)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "blue") +
+  geom_vline(xintercept=threshold, color="red") +
+  geom_vline(xintercept=threshold2, color="red") +
+  labs(title = "Response Time Distribution (for every person & item combination)", x = "Response Times", y = "Frequency") #the warning is on the NAs 
+#check total response times
+hist(data$total_response_time, main = "Total Response Times", xlab = "Total Response Time")
+summary(data$total_response_time)
+
+#delete people with more than 20% missing response times
+data <- data %>%
+  filter(perc_missing_responsetimes <= 0.2)
+
+#new histogram on mean response times
+hist(data$mean_response_time, main = "Mean Response Times", xlab = "Mean Response Time")
+```
+Conclusion: Let's use the mean response times (as well as for TIMSS later on)
+
+### Missing item score
+```{r missing item score normalisation}
+#remove people with more than 80% missing items
+sum(data$perc_missing_itemscores >= 0.8)/nrow(data) #0% of the observations will be removed from the data
+data <- data %>% filter(perc_missing_itemscores < 0.8)
+
+#look at distribution of missing itemscores
+hist(data$perc_missing_itemscores)
+table(data$perc_missing_itemscores)
+#needs to be normalised for the SEM Model
+
+#see which normalisation to take 
+data$perc_missing_itemscores_sqrt <- sqrt(data$perc_missing_itemscores)
+data$perc_missing_itemscores_cubert <- data$perc_missing_itemscores^(1/3)
+data$perc_missing_itemscores_log <- log(data$perc_missing_itemscores)
+data$perc_missing_itemscores_ihs <- asinh(data$perc_missing_itemscores)
+lambda <- boxcox(lm(perc_missing_itemscores +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$perc_missing_itemscores_boxcox <- (data$perc_missing_itemscores^best_lambda - 1) / best_lambda
+data$perc_missing_itemscores_rank <- qnorm(rank(data$perc_missing_itemscores, ties.method = "average") / (nrow(data) + 1))
+
+par(mfrow = c(3, 2))
+hist(data$perc_missing_itemscores_sqrt, main = "Square Root")
+hist(data$perc_missing_itemscores_cubert, main = "Cube Root")
+hist(data$perc_missing_itemscores_log, main = "Log")
+hist(data$perc_missing_itemscores_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$perc_missing_itemscores_boxcox, main = "Box-Cox")
+hist(data$perc_missing_itemscores_rank, main = "Rank-Based Normalization")
+#the log looks best again (like in TIMSS)
+
+data <- data %>% dplyr::select(-perc_missing_itemscores_sqrt, -perc_missing_itemscores_cubert, -perc_missing_itemscores_log, -perc_missing_itemscores_ihs, -perc_missing_itemscores_boxcox, -perc_missing_itemscores_rank)
+
+
+data$normalisedperc_missing_itemscores <- log(data$perc_missing_itemscores)
+
+data$normalisedperc_missing_itemscores[data$normalisedperc_missing_itemscores == -Inf] <- min(data$normalisedperc_missing_itemscores[is.finite(data$normalisedperc_missing_itemscores)], na.rm = TRUE)
+
+hist(data$normalisedperc_missing_itemscores)
+summary(data$normalisedperc_missing_itemscores)
+```
+
+
+### Extreme times PFR / PSR
+```{r}
+hist(data$perc_littletime)
+hist(data$perc_muchtime)
+```
+Let's normalise these
+
+### Little time
+```{r normalise PFR}
+data$perc_littletime_sqrt <- sqrt(data$perc_littletime)
+data$perc_littletime_cubert <- data$perc_littletime^(1/3)
+data$perc_littletime_log <- log(data$perc_littletime)
+data$perc_littletime_ihs <- asinh(data$perc_littletime)
+lambda <- boxcox(lm(perc_littletime +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$perc_littletime_boxcox <- (data$perc_littletime^best_lambda - 1) / best_lambda
+data$perc_littletime_rank <- qnorm(rank(data$perc_littletime, ties.method = "average") / (nrow(data) + 1))
+
+par(mfrow = c(3, 2))
+hist(data$perc_littletime_sqrt, main = "Square Root")
+hist(data$perc_littletime_cubert, main = "Cube Root")
+hist(data$perc_littletime_log, main = "Log")
+hist(data$perc_littletime_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$perc_littletime_boxcox, main = "Box-Cox")
+hist(data$perc_littletime_rank, main = "Rank-Based Normalization")
+#the log looks best again
+
+data <- data %>% dplyr::select(-perc_littletime_sqrt, -perc_littletime_cubert, -perc_littletime_log, -perc_littletime_ihs, -perc_littletime_boxcox, -perc_littletime_rank)
+
+data$normalisedperc_littletime <- log(data$perc_littletime)
+
+data$normalisedperc_littletime[data$normalisedperc_littletime == -Inf] <- min(data$normalisedperc_littletime[is.finite(data$normalisedperc_littletime)], na.rm = TRUE)
+
+```
+
+### Much time
+```{r normalise PSR}
+data$perc_muchtime_sqrt <- sqrt(data$perc_muchtime)
+data$perc_muchtime_cubert <- data$perc_muchtime^(1/3)
+data$perc_muchtime_log <- log(data$perc_muchtime)
+data$perc_muchtime_ihs <- asinh(data$perc_muchtime)
+lambda <- boxcox(lm(perc_muchtime +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$perc_muchtime_boxcox <- (data$perc_muchtime^best_lambda - 1) / best_lambda
+data$perc_muchtime_rank <- qnorm(rank(data$perc_muchtime, ties.method = "average") / (nrow(data) + 1))
+  
+par(mfrow = c(3, 2))
+hist(data$perc_muchtime_sqrt, main = "Square Root")
+hist(data$perc_muchtime_cubert, main = "Cube Root")
+hist(data$perc_muchtime_log, main = "Log")
+hist(data$perc_muchtime_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$perc_muchtime_boxcox, main = "Box-Cox")
+hist(data$perc_muchtime_rank, main = "Rank-Based Normalization")
+#the log looks best again
+
+data <- data %>% dplyr::select(-perc_muchtime_sqrt, -perc_muchtime_cubert, -perc_muchtime_log, -perc_muchtime_ihs, -perc_muchtime_boxcox, -perc_muchtime_rank)
+  
+data$normalisedperc_muchtime <- log(data$perc_muchtime)
+
+data$normalisedperc_muchtime[data$normalisedperc_muchtime == -Inf] <- min(data$normalisedperc_muchtime[is.finite(data$normalisedperc_muchtime)], na.rm = TRUE)
+```
+
+
+```{r item type}
+data <- data %>%
+  mutate(item_type_open = case_when(
+    item_type %in% c("Open Response - Computer Scored", "Open Response - Human Coded") ~ "Open Response",
+    TRUE ~ item_type  # Retain original value for other cases
+  ))
+
+data <- data %>%
+  mutate(item_type_open = case_when(
+    item_type_open %in% c("Simple Multiple Choice - Computer Scored") ~ "Simple Multiple Choice", 
+    TRUE ~ item_type_open
+  ))
+
+data <- data %>%
+  mutate(item_type_open = case_when(
+    item_type_open %in% c("Complex Multiple Choice - Computer Scored") ~ "Complex Multiple Choice", 
+    TRUE ~ item_type_open
+  ))
+```
+
+
+### SES / ESCS (economic, social and cultural status)
+High -> high shooling of parents, high income, etc
+```{r SES}
+str(data$ESCS)
+summary(data$ESCS)
+mean(data$ESCS, na.rm = TRUE)
+sd(data$ESCS, na.rm = TRUE)
+#rename ESCS to SES
+data <- data %>%
+  rename(SES = ESCS)
+```
+
+Make sure all the variables have the correct format and distributions
+```{r factors etc}
+# Ensure EFFORT1 and EFFORT2 are numeric
+data$EFFORT1 <- as.numeric(data$EFFORT1)
+data$EFFORT2 <- as.numeric(data$EFFORT2)
+#change values about 10 to NA
+data$EFFORT1 <- ifelse(data$EFFORT1 > 10, NA, data$EFFORT1)
+data$EFFORT2 <- ifelse(data$EFFORT2 > 10, NA, data$EFFORT2)
+
+#rename ST004D01T to gender with the mutate function
+data <- data %>%
+  mutate(
+        gender = ST004D01T -1,
+        gender = as.factor(gender)
+      ) 
+
+#make variable native
+data <- data %>%
+  mutate(
+      Native = as.numeric(IMMIG),
+      Native = dplyr::recode(Native, 
+                     `1` = 1,
+                     `2` = 1,
+                     `3` = 0,
+                     `5` = NA_real_,
+                     `7` = NA_real_,
+                     `8` = NA_real_,
+                     `9` = NA_real_, 
+                     .default = Native), # Keep all other values the same
+      Native = as.factor(Native)) %>%
+  
+  # Convert specific variables to factors
+    mutate(across(
+      c(CNTSCHID, CNTSTUID, BOOKID, ST004D01T, ST019AQ01T, ST127Q03TA, Native), 
+      as.factor
+    )) %>%
+    # Convert certain variables to integers
+    mutate(across(
+      c(EFFORT1, EFFORT2), 
+      as.integer
+    )) %>%
+    # Standardize numerical variables
+    #mutate(across(where(is.numeric), ~ scale(.) %>% as.vector()))
+    mutate(across(where(is.numeric), as.double))
+  
+  # Convert all character variables to factors
+  data[sapply(data, is.character)] <- lapply(data[sapply(data, is.character)], as.factor)
+  
+#make new variable effort
+data <- data %>% 
+  dplyr::mutate(effort = (EFFORT2 - EFFORT1), na.rm = TRUE)
+```
+
+
+Make many little time (Fast students) and many much time (Slow students) variables
+```{r create Fast and Slow students}
+#many little time (Fast Students) is when a person is in the top 20% of the distribution of the normalised PFR
+data$many_little_time <- ifelse(
+  data$normalisedperc_littletime > quantile(data$normalisedperc_littletime, probs = 0.8, na.rm = TRUE), 
+                                1, 
+                                0)
+
+#many much time (Slow Students) is when a person is in the top 20% of the distribution of the normalised PSR  
+data$many_much_time <- ifelse(
+  data$normalisedperc_muchtime > quantile(data$normalisedperc_muchtime, probs = 0.8, na.rm = TRUE), 
+                                1, 
+                                0)
+```
+
+Only keep 1 row per person
+```{r keep only 1 row per person}
+data <- data %>%
+  distinct(person_id, .keep_all = TRUE)  # Keeps only the first occurrence of each person_id
+```
+
+Split the data into NL and Others
+```{r split nl others}
+dataPISANL <- data %>%
+  filter(country == "Netherlands")
+dataPISAOthers <- data %>%
+  filter(country != "Netherlands")
+```
+
+Save the data
+```{r save data}
+save(data, dataPISAOthers, dataPISANL, file = "../IntermediateData/PISAdata.RData")
+```
+
+
+
+
+# TIMSS Data Cleaning
+
+## Create the Final Dataset
+Saved as `TIMSSMeantime.RData` in the `IntermediateData` folder.
+The following steps will take a lot of computing power, because of this, after these intensive steps, an intermediate dataset is saved. You may resume running the code from that point on if you'd like. The dataset is in the `IntermediateData` folder, you may continue from the heading `Clean TIMSS data`. To do so, you can click on just above the heading, right-click the run button on the top-right, and select "Run All Chunks Below". 
+
+Load in the data as `TIMSS2019`
+```{r Load TIMSS Data, include=FALSE}
+rm(list = ls())
+load("../RawData/TIMSS2019.Rdata")
+```
+
+
+The variables we want to keep are: 
+- The items + their scores + their response times
+- (create personal) ID variables
+- Variables that could explain motivation
+    - response times
+    - answer patterns 
+    - number of screen visits
+- plausible values 
+
+
+Now, let's only keep the maths items to match what PISA measures:
+```{r keep only maths items}
+TIMSS2019 <- TIMSS2019[, !grepl("^SP", names(TIMSS2019))]
+TIMSS2019 <- TIMSS2019[, !grepl("^SE", names(TIMSS2019))]
+```
+
+Let's keep only the relevant plausible values, the one to do with maths -> 
+Remove: ASSSCI01:ASSSCI05, ASSLIF01:ASSENV05
+```{r remove irrelevant PVs}
+TIMSS2019 <- TIMSS2019 %>% dplyr::select(-c(ASSSCI01:ASSSCI05, ASSLIF01:ASSENV05))
+```
+
+Lets look at the variable names: 
+```{r TIMSS Variable Names, results='hide'}
+colnames(TIMSS2019)
+colnames(TIMSS2019[1000:1051])
+```
+Data Structure:
+- The difference between items starting with MP, ME and MN is not yet clear to me, but only the ME items have frequencies of screen visits and screen times. 
+- The frequency of visits to a screen are indicated per screen by adding `_F` to the screen number. If multiple items are on the same screen, these will have added the letters `A`, `B` etc to them. 
+- The response time is indicated by adding `_S` to the item number.
+
+
+Add a unique student identifier
+[THERE'S LESS DISTINCT STUDENTS THAN THERE ARE ROWS?]
+```{r unique student identifier}
+# change items to numeric
+TIMSS2019 <- TIMSS2019 %>%
+  mutate(across(MP51043:MN21012B, ~as.numeric(as.character(.))))
+
+# Create a unique identifier for each student
+TIMSS2019 <- TIMSS2019 %>% 
+  mutate(person_id = 1:nrow(TIMSS2019))
+n_distinct(TIMSS2019$person_id)
+
+# Check for duplicates in the person_id column
+counts <- table(TIMSS2019$person_id)
+duplicates <- names(counts[counts > 1])
+duplicates
+```
+
+### score the items
+Below, the items will be scored. This will be done per what the correct answer possibility was. This information was taken from the official Special Programs: SPSS and SAS Programs files, in the case of my data in ASASCRM7.sav/sps
+
+*Create item scores:*
+First, we need to score the 1, 2, 3, and 4s (representing A, B, C, D) as correct or not
+For multiple-choice items, numerical values 1, 2, 3, 4, etc., are used to correspond to the response options A, B, C, D, etc., respectively. For these items, the correct response key is included in the item information files (described earlier) and as part of the variable label in the achievement codebook files (described in a later section). SPSS and SAS programs are included as part of the TIMSS 2019 International Database to derive correctness scores (or score points) for these items based on their item response codes (see Chapter 3).
+
+
+All item scores will temporarily be scored in new variables with the same name as the original variable, but with `_R` added to the end.
+
+A = 1 IS CORRECT 
+```{r Score A = 1 IS CORRECT}
+# Define the function to apply the scoring rules
+score_values <- function(x) {
+  case_when(
+    x == 1 ~ 1,   # Keep 1 as 1
+    x == 2 ~ 0,
+    x == 3 ~ 0, 
+    x == 4 ~ 0, 
+    x == 6 ~ 99,  # Convert 6 to NA
+    is.na(x) ~ NA_real_,  # Keep NA as NA
+    x == 9 ~ 99,  # Convert 9 to NA
+    x == 7 ~ 0,   # Convert 7 to 0
+    TRUE ~ x  # Keep all other values unchanged (optional, remove if not needed)
+  )
+}
+
+variables_to_score <- c(
+  "MP51040", "MP51216A", "MP61040", "MP61171", "MP71013", "MP71135A", "MP51224",   "MP61018A", "MP61018B", "MP61018D", "MP61106", "MP51211", "MP51100", "MP71199",   "MP71141A", "MP71141D", "MP61172", "MP71005", "MP71163", "MP61232", "MP61240A",   "MP61240B", "MP61077", "MP71138AA", "MP71138AB", "MP71203",  "MN11039",  "MN21061", "MN21037", "MN21003A", "MN21003D", "MN11129", "MN11231",   "MN11045", "MN11240", "MN11002", "MN21054", "MN21010A", "MN11262", "MN21065",  "MN21057A", "MN21057D",  "ME51043B", "ME51043D", "ME51043E", "ME51043G", "ME51040", "ME51216A", "ME71167B",  "ME71167C", "ME71167F", "ME71078C", "ME61040", "ME61171", "ME71013", "ME71135A",  "ME51224", "ME61018A", "ME61018B", "ME61018D", "ME61106", "ME51211", "ME51100",  "ME71199", "ME71141A", "ME71141D", "ME71194B", "ME61172", "ME71005", "ME71163",  "ME71213C", "ME71187AB", "ME61232", "ME61095E", "ME71117C", "ME71117D", "ME71202A",  "ME61240A", "ME61240B", "ME61077", "ME71138AA", "ME71138AB", "ME71203")
+
+for (var in variables_to_score) {
+  TIMSS2019[[paste0(var, "_R")]] <- score_values(TIMSS2019[[var]])
+}
+
+#check some variables
+summary(TIMSS2019$ME61018A_R)
+summary(TIMSS2019$ME71141D_R)
+summary(TIMSS2019$ME61095E_R)
+summary(TIMSS2019$ME71138AB_R)
+```
+
+
+B = 2 IS CORRECT 
+```{r Score B = 2 IS CORRECT}
+# Define the function to apply the scoring rules
+score_values <- function(x) {
+  case_when(
+    x == 1 ~ 0,   # Keep 1 as 1
+    x == 2 ~ 1,
+    x == 3 ~ 0, 
+    x == 4 ~ 0, 
+    x == 6 ~ 99,  # Convert 6 to NA
+    is.na(x) ~ NA_real_,  # Keep NA as NA
+    x == 9 ~ 99,  # Convert 9 to NA
+    x == 7 ~ 0,   # Convert 7 to 0
+    TRUE ~ x  # Keep all other values unchanged (optional, remove if not needed)
+  )
+}
+
+variables_to_score <- c("MP51216B", "MP51221", "MP71021", "MP71217B", "MP71178B", "MP51049", "MP51207", "MP61018C", "MP61274", "MP51226", "MP71064", "MP71184", "MP71141B", "MP71141C", "MP61275", "MP71070", "MP71179A", "MP61108", "MP61211B", "MP71062", "MP71071", "MP61240C", "MP61041", "MP71094", "MP71138AC", "MN11260", "MN11170", "MN11001", "MN21067", "MN21070", "MN21003B", "MN21003C", "MN11076", "MN11067", "MN11023", "MN11061", "MN11134", "MN11253", "MN11182B", "MN21038", "MN21053", "MN11034", "MN11239", "MN21035", "MN21057B", "MN21057C", "MN21063", "MN21012B", "ME51043A", "ME51043C", "ME51043F", "ME51043H", "ME51216B", "ME51221", "ME71021", "ME71167A", "ME71167D", "ME71167E", "ME71078A", "ME71217B", "ME71178B", "ME51049", "ME51207", "ME61018C", "ME61274", "ME51226", "ME71064", "ME71176", "ME71184", "ME71141B", "ME71141C", "ME61275", "ME71213A", "ME71213B", "ME71070", "ME71179A", "ME71187AA", "ME61095C", "ME61108", "ME61211B", "ME71062", "ME71117A", "ME71117B", "ME71117E", "ME71071", "ME71202B", "ME61240C", "ME61041", "ME71094", "ME71138AC")
+
+for (var in variables_to_score) {
+  TIMSS2019[[paste0(var, "_R")]] <- score_values(TIMSS2019[[var]])
+}
+
+#check some variables
+summary(TIMSS2019$ME51043C_R)
+summary(TIMSS2019$ME61275_R)
+summary(TIMSS2019$ME61211B_R)
+summary(TIMSS2019$ME71071_R)
+```
+
+
+C = 3 IS CORRECT 
+```{r Score C = 3 IS CORRECT}
+# Define the function to apply the scoring rules
+score_values <- function(x) {
+  case_when(
+    x == 1 ~ 0,   # Keep 1 as 1
+    x == 2 ~ 0,
+    x == 3 ~ 1, 
+    x == 4 ~ 0, 
+    x == 6 ~ 99,  # Convert 6 to NA
+    is.na(x) ~ NA_real_,  # Keep NA as NA
+    x == 9 ~ 99,  # Convert 9 to NA
+    x == 7 ~ 0,   # Convert 7 to 0
+    TRUE ~ x  # Keep all other values unchanged (optional, remove if not needed)
+  )
+}
+
+variables_to_score <- c("MP71219", "MP71090", "MP61026", "MP71068", "MP71178A", "MP71178C", "MP51052", "MP51427", "MP61179", "MP51075", "MP51103", "MP51102", "MP71018", "MP71083", "MP61223", "MP71045", "MP71179B", "MP71179C", "MP61246", "MP61049", "MP71134A", "MP61244", "MP71079", "MP71206", "MN11252", "MN11214", "MN21069", "MN21040", "MN11142", "MN11005", "MN11056", "MN11041", "MN11019", "MN11211", "MN11009", "MN11182A", "MN21064", "MN21030", "MN11047A", "MN21019", "MN21039", "ME71219", "ME71078B", "ME71090", "ME61026", "ME71068", "ME71178A", "ME71178C", "ME51052", "ME51427", "ME61179", "ME51075", "ME51103", "ME51102", "ME71018", "ME71083", "ME71194A", "ME61223", "ME71045", "ME71179B", "ME71179C", "ME71187AD", "ME61246", "ME61049", "ME61095B", "ME61095D", "ME71134A", "ME71202C", "ME61244", 
+"ME71079", "ME71206")
+
+for (var in variables_to_score) {
+  TIMSS2019[[paste0(var, "_R")]] <- score_values(TIMSS2019[[var]])
+}
+
+#check some variables
+summary(TIMSS2019$ME71090_R)
+summary(TIMSS2019$ME71187AD_R)
+summary(TIMSS2019$ME61095B_R)
+summary(TIMSS2019$ME71079_R)
+```
+
+
+
+D = 4 IS CORRECT 
+```{r Score D = 4 IS CORRECT}
+# Define the function to apply the scoring rules
+score_values <- function(x) {
+  case_when(
+    x == 1 ~ 0,   # Keep 1 as 1
+    x == 2 ~ 0,
+    x == 3 ~ 0, 
+    x == 4 ~ 1, 
+    x == 6 ~ 99,  # Convert 6 to NA
+    is.na(x) ~ NA_real_,  # Keep NA as NA
+    x == 9 ~ 99,  # Convert 9 to NA
+    x == 7 ~ 0,   # Convert 7 to 0
+    TRUE ~ x  # Keep all other values unchanged (optional, remove if not needed)
+  )
+}
+
+variables_to_score <- c("MP51115", "MP71041", "MP61273", "MP61222", "MP71040", "MP71080", "MP51098", "MP51502", "MP61052", "MP61207", "MP61151", "MP61269", "MP71001", "MP61252", "MP71008", "MP71165", "MN11278A", "MN11278B", "MN11040", "MN11032", "MN21020", "MN21001", "MN11268", "MN11036", "MN11305", "MN11265", "MN11221", "MN21066", "MN21045", "MN11047B", "MN21024", "ME51115", "ME71041", "ME61273", "ME61222", "ME71040", "ME71080", "ME51098", "ME51502", "ME61052", "ME61207", "ME61151", "ME61269", "ME71187AC", "ME71001", "ME61252", "ME71008", "ME71165")
+
+for (var in variables_to_score) {
+  TIMSS2019[[paste0(var, "_R")]] <- score_values(TIMSS2019[[var]])
+}
+
+#check some variables
+summary(TIMSS2019$ME61273_R)
+summary(TIMSS2019$ME61151_R)
+summary(TIMSS2019$ME71001_R)
+summary(TIMSS2019$ME71187AC_R)
+```
+
+
+Score Constructed-Response Items 
+```{r}
+# Define the function to apply the scoring rules
+score_values <- function(x) {
+  case_when(
+    x == 0 ~ 0,   
+    x == 1 ~ 1,
+    x == 10  ~ 1,
+    x == 11  ~ 1,
+    x == 12  ~ 1,
+    x == 20  ~ 2,
+    x == 70  ~ 0,
+    x == 71  ~ 0,
+    x == 72  ~ 0,
+    x == 79 ~ 0,
+    is.na(x) ~ NA_real_,  # Keep NA as NA
+    x == 96  ~ 99,
+    x == 99  ~ 99,
+    TRUE ~ x  # Keep all other values unchanged (optional, remove if not needed)
+  )
+}
+
+
+variables_to_score <- c("MP51043", "MP51008", "MP51031A", "MP51031B", "MP51508", "MP51507A", "MP51507B","MP71167", "MP71162", "MP71162A", "MP71162B", "MP71078", "MP71151", "MP71151A","MP71151B", "MP71151C", "MP71119", "MP71217A", "MP71142", "MP71204", "MP71204A","MP71204B", "MP71204C", "MP61034", "MP61228", "MP61166", "MP61080", "MP61076", "MP61084", "MP71026", "MP71036", "MP71036A", "MP71036B", "MP71075A", "MP71075B","MP71211", "MP71178", "MP71135B", "MP71201", "MP71175", "MP71175A", "MP71175B","MP71175C", "MP51206", "MP51045", "MP51030", "MP51533", "MP51080", "MP61018","MP61248", "MP61039", "MP61079", "MP61236", "MP61266", "MP51401", "MP51402", "MP51131", "MP51217", "MP51079", "MP51009", "MP71009", "MP71037", "MP71051","MP71169", "MP71141", "MP71194", "MP71193", "MP71193A", "MP71193B", "MP71192", "MP61027", "MP61255", "MP61021", "MP61043", "MP61081A", "MP61081B", "MP71016", "MP71213", "MP71181", "MP71179", "MP71067", "MP71147A", "MP71147B", "MP71189", "MP71187A", "MP71187B", "MP61178", "MP61271", "MP61256", "MP61182", "MP61095", "MP61264", "MP61211A", "MP71010", "MP71216A", "MP71216AA", "MP71216AB", "MP71216B", "MP71117", "MP71098", "MP71134B", "MP71202", "MP71190", "MP71218", "MP61240", "MP61254", "MP61173", "MP61261", "MP61224", "MP61069A", "MP61069B", "MP71024", "MP71049", "MP71063", "MP71081", "MP71177", "MP71138A", "MP71138B", "MP71205", "MP71205A", "MP71205B", "MP71205C", "MN11128", "MN11022", "MN11010", "MN11136", "MN11261", "MN11033", "MN11195", "MN11188", "MN11055", "MN11116A", "MN11116B", "MN11066A", "MN11066B", "MN11068", "MN11269", "MN11235", "MN21046", "MN21023", "MN21018", "MN21033", "MN21060", "MN21003", "MN11141", "MN11256A", "MN11256B", "MN11108", "MN11062", "MN11174", "MN11043", "MN11270", "MN11057", "MN11113", "MN11200", "MN11218", "MN11225", "MN11179", "MN11303", "MN11145", "MN11014", "MN11300", "MN11028", "MN11154", "MN11024", "MN11212", "MN11146", "MN11177", "MN11158", "MN11272", "MN21051", "MN21025", "MN21043", "MN21032", "MN21010B", "MN21059", "MN11017", "MN11125", "MN11077", "MN11223", "MN11175", "MN11202", "MN11299", "MN21049", "MN21050", "MN21014", "MN21062", "MN21057", "MN21005", "MN21012A", "ME51043", "ME51008", "ME51031A", "ME51031B", "ME51508", "ME51508A", "ME51508B", "ME51507A", "ME51507B", "ME71167", "ME71162", "ME71162A", "ME71162B", "ME71078", "ME71151", "ME71151A", "ME71151B", "ME71151C", "ME71119", "ME71217A", "ME71142", "ME71142A", "ME71142B", "ME71204", "ME71204A", "ME71204B", "ME71204C", "ME61034", "ME61228", "ME61166", "ME61080", "ME61076", "ME61084", "ME71026", "ME71036", "ME71036A", "ME71036B", "ME71075A", "ME71075B", "ME71211", "ME71178", "ME71135B", "ME71201", "ME71175", "ME71175A", "ME71175B", "ME71175C", "ME51206", "ME51045", "ME51030", "ME51533", "ME51080", "ME61018", "ME61248", "ME61039", "ME61079", "ME61236", "ME61266", "ME61266A", "ME61266B", "ME61266C", "ME61266D", "ME61266E", "ME61266F", "ME51401", "ME51402", "ME51131", "ME51217", "ME51079", "ME51009", "ME71009", "ME71037", "ME71051", "ME71169", "ME71141", "ME71194", "ME71193", "ME71193A", "ME71193B", "ME71192", "ME61027", "ME61255", "ME61021", "ME61043", "ME61081A", "ME61081B", "ME71016", "ME71213", "ME71181", "ME71179", "ME71067", "ME71147A", "ME71147B", "ME71189", "ME71187A", "ME71187B", "ME61178", "ME61271", "ME61256", "ME61182", "ME61095", "ME61264", "ME61211A", "ME71010", "ME71216A", "ME71216AA", "ME71216AB", "ME71216B", "ME71117", "ME71098", "ME71069", "ME71134B", "ME71202", "ME71190", "ME71218", "ME61240", "ME61254", "ME61254A", "ME61254B", "ME61254C", "ME61173", "ME61261", "ME61224", "ME61069A", "ME61069B", "ME71024", "ME71049", "ME71063", "ME71081", "ME71177", "ME71138A", "ME71138B", "ME71205", "ME71205A", "ME71205B", "ME71205C")
+
+summary(TIMSS2019$ME61081B)
+summary(TIMSS2019$ME61261)
+summary(TIMSS2019$ME71177)
+summary(TIMSS2019$ME71205C)
+
+for (var in variables_to_score) {
+  TIMSS2019[[paste0(var, "_R")]] <- score_values(TIMSS2019[[var]])
+}
+
+#check some variables
+summary(TIMSS2019$ME61081B_R)
+summary(TIMSS2019$ME61261_R)
+summary(TIMSS2019$ME71177_R)
+summary(TIMSS2019$ME71205C_R)
+summary(TIMSS2019$ME51031A_R)
+unique(TIMSS2019$ME51031A_R)
+unique(TIMSS2019$ME61081A_R)
+```
+
+
+
+Now, let's change it to long format: 
+```{r melt data}
+# clean up the environment
+gc()
+
+# Melt item responses -> dataset with background vars + item_id $ item_response 
+data <- melt(TIMSS2019,
+                  id.vars = grep("^(?!ME|MN|MP)", names(TIMSS2019), value = TRUE, perl = TRUE),
+                  measure.vars = grep("^ME(?!.*(_S|_F|_R)$)", names(TIMSS2019), value = TRUE, perl = TRUE), # all variables starting with ME and not ending on _S, _F, or _R
+                  variable.name = "item_id", value.name = "item_response")
+
+# add screen_id to data by removing last letter(s) (A, B, C, D, AA, AB, AC, AD etc) from the item_id
+data <- data %>%
+  mutate(screen_id = gsub("[A-Z]+$", "", item_id))
+
+# Melt response times
+response_time_long <- melt(TIMSS2019,
+                           id.vars = c("IDCNTRY", "person_id"),
+                           measure.vars = grep("^ME.*_S$", names(TIMSS2019), value = TRUE),
+                           variable.name = "item_screen", value.name = "response_time")
+
+
+# Melt item scores (_R variables)
+item_scores_long <- melt(TIMSS2019,
+                         id.vars = c("IDCNTRY", "person_id"),
+                         measure.vars = grep("^ME.*_R$", names(TIMSS2019), value = TRUE),
+                         variable.name = "item_id", value.name = "item_score") %>%
+  mutate(item_id = gsub("_R$", "", item_id))  # Ensure item_id matches original naming
+
+# Extract screen_id correctly
+response_time_long <- response_time_long %>%
+  mutate(screen_id = gsub("_S.*", "", item_screen))  # Use correct column name
+
+# Remove duplicates
+data <- data %>% distinct(IDCNTRY, person_id, item_id, .keep_all = TRUE)
+response_time_long <- response_time_long %>% distinct(IDCNTRY, person_id, screen_id, .keep_all = TRUE)
+
+# clear up the environment
+gc()
+
+# Merge datasets
+data <- data %>%
+  left_join(response_time_long, by = c("IDCNTRY", "person_id", "screen_id")) %>%
+  left_join(item_scores_long, by = c("IDCNTRY", "person_id", "item_id")) # %>%
+  # left_join(item_counts, by = "screen_id")
+
+#clean up the environment
+gc()
+
+#remove every row with NAs, keep in mind, "Not reached" and "Omitted or invalid" are not NAs at this time. So only questions the students were not admitted are being deleted.
+# Thus, remove systematic missings (due to not participating in that booklet)
+data <- data %>% filter(!is.na(item_response))
+
+#save the data as TIMSSMeantime.RData in the IntermediateData folder
+save(data, file = "../IntermediateData/TIMSSMeantime.RData")
+```
+
+
+
+## Clean TIMSS data 
+
+```{r load data}
+rm(list = ls())
+load("../IntermediateData/TIMSSMeantime.RData") 
+```
+
+```{r code country names}
+data$IDCNTRY <- zap_labels(data$IDCNTRY)
+data <- data %>%
+  mutate(country = case_when(
+    IDCNTRY == 40  ~ "Austria",
+    IDCNTRY == 208 ~ "Denmark",
+    IDCNTRY == 926 ~ "England",
+    IDCNTRY == 246 ~ "Finland",
+    IDCNTRY == 250 ~ "France",
+    IDCNTRY == 276 ~ "Germany",
+    IDCNTRY == 380 ~ "Italy",
+    IDCNTRY == 528 ~ "Netherlands",
+    IDCNTRY == 620 ~ "Portugal",
+    IDCNTRY == 724 ~ "Spain",
+    IDCNTRY == 752 ~ "Sweden"
+  ))
+```
+
+Now, let's introduce NAs for the item scores and item responses "Not reached" and "Omitted or invalid":
+```{r introduce NAs}
+data <- data %>%
+  mutate(item_response = na_if(item_response, 99))
+
+data <- data %>%
+  mutate(item_score = na_if(item_score, 99))
+```
+
+```{r missing RTs & itemscores}
+data %>% count(item_score, is.na(response_time))
+```
+There's missing response times for items which have a greater item score than 0? So, they were answered, but no response time was recorded. This is a problem.
+Either delete these, or impute the response times as the median RT of that item.
+Let's see if the PISA data has the same problem:
+
+```{r Load PISA Data}
+dataTIMSS <- data
+load("../IntermediateData/PISAdata.RData") #PISA data
+dataPISA <- data
+rm(data)
+dataPISA %>% count(item_score, is.na(response_time))
+```
+it does in fact not have the same problem. 
+
+Let's impute them with the median of the item
+```{r Impute RTs}
+dataTIMSS <- dataTIMSS %>%
+  group_by(item_id) %>% #this makes sure that the median of that item will be taken 
+  mutate(response_time = ifelse(is.na(response_time) & item_score > 0, # test
+                                median(response_time, na.rm = TRUE), # test = yes
+                                response_time)) %>% # test = no
+  ungroup()
+```
+
+```{r check missing RTs again}
+dataTIMSS %>% count(item_score, is.na(response_time))
+```
+Now only the items with an item_score of 0, or NA have missing response times. This makes sense conceptually. 
+
+### Add the number of items on the screen 
+```{r ItemsOnScreen}
+gc()
+df_summary <- dataTIMSS %>%
+  group_by(person_id, screen_id) %>%
+  summarise(ItemsOnScreen = n_distinct(item_id), .groups = "drop")
+gc()
+dataTIMSS <- dataTIMSS %>%
+  left_join(df_summary, by = c("person_id", "screen_id"))
+```
+
+```{r adjust response_time}
+dataTIMSS <- dataTIMSS %>%
+  mutate(response_time = response_time / ItemsOnScreen)
+```
+
+```{r add variables}
+threshold <- quantile(dataTIMSS$response_time, probs = 0.10, na.rm = TRUE)
+threshold2 <- quantile(dataTIMSS$response_time, probs = 0.90, na.rm = TRUE)
+
+pp <- dataTIMSS %>%
+  mutate(item_score = ifelse(item_score> 2, NA, item_score)) %>%
+  group_by(person_id) %>%
+  summarise(booklet_size = n_distinct(item_id),
+            number_of_answered_items = sum(!is.na(item_score)),
+            total_response_time = sum(response_time, na.rm = TRUE),
+            mean_response_time = mean(response_time, na.rm = TRUE),
+            perc_missing_itemscores = mean(is.na(item_score)),
+            perc_missing_responsetimes = mean(is.na(response_time)),
+            perc_littletime = mean(response_time < threshold, na.rm = TRUE),
+            perc_muchtime = mean(response_time > threshold2, na.rm = TRUE),
+            .groups = "drop")
+
+#add the variables from pp to dataTIMSS
+dataTIMSS <- dataTIMSS %>%
+  left_join(pp, by = "person_id")
+```
+
+Change the dataset name back and remove the PISA data again:
+```{r}
+data <- dataTIMSS
+rm(dataPISA, dataTIMSS)
+```
+
+### Change PVs
+```{r PVs}
+# only keep 5 general PVs
+data <- data %>%
+  dplyr::select(-c(ASMNUM01:ASSIBM05))
+
+#scale the PVs all together, so that their collective mean is 0 and their collective sd is 1 (previously mean 522, sd 74, code to calculate in comment below)
+data[, c("ASMMAT01", "ASMMAT02", "ASMMAT03", "ASMMAT04", "ASMMAT05")] <- 
+  matrix(scale(as.vector(as.matrix(data[, c("ASMMAT01", "ASMMAT02", "ASMMAT03", "ASMMAT04", "ASMMAT05")]))),
+         nrow = nrow(data))
+# combined_values <- as.vector(as.matrix(data[, c("ASMMAT01", "ASMMAT02", "ASMMAT03", "ASMMAT04", "ASMMAT05")]))
+# mean(combined_values)  
+# sd(combined_values) 
+
+#rename them to PV1 : PV5
+data <- data %>%
+  rename(PV1 = ASMMAT01, PV2 = ASMMAT02, PV3 = ASMMAT03, PV4 = ASMMAT04, PV5 = ASMMAT05)
+```
+
+### Response times
+```{r RTs}
+#look at data 
+summary(data$response_time)
+# 5min = 300 seconds, 5095 seconds = 1.4 hours -> recode everything more than 15 minutes = 900 seconds to 900 seconds ->
+n_distinct(data$person_id[data$response_time > 900]) 
+#144 scores will be changed
+
+# change the response times to 900 seconds if they are greater than 900 seconds
+data <- data %>%
+  mutate(response_time = ifelse(response_time > 900, # test
+                                900,                  # test = yes
+                                response_time))       # test = no
+
+##check the distribution of the response times
+ggplot(data, aes(x = response_time)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "blue") +
+  geom_vline(xintercept=threshold, color="red") +
+  geom_vline(xintercept=threshold2, color="red") +
+  labs(title = "Response Time Distribution (for every person & item comibnation)", x = "Response Times", y = "Frequency") #the warning is on the NAs 
+
+#check the distribution of the total response times
+hist(data$total_response_time, main = "Total Response Times", xlab = "Total Response Time")
+summary(data$total_response_time)
+
+#delete people with more than 20% missing response times ->
+sum(data$perc_missing_responsetimes > 0.2)/nrow(data) #2.7% of the observations will be removed from the data 
+data <- data %>%
+  filter(perc_missing_responsetimes <= 0.2)
+
+# check the distribution of the mean response times
+hist(data$mean_response_time, main = "Mean Response Times", xlab = "Mean Response Time")
+```
+Conclusion: Let's use the mean response times
+
+### Missing item score; Percentage Unanswered Questions (PUQ)
+```{r}
+#remove people with more than 80% missing items ->
+sum(data$perc_missing_itemscores >= 0.8)/nrow(data) #1.7% of the observations will be removed from the data
+data <- data %>% filter(perc_missing_itemscores < 0.8)
+
+#check the distribution of the perc_missing_itemscores
+hist(data$perc_missing_itemscores)
+
+#see which normalisation to take 
+data$perc_missing_itemscores_sqrt <- sqrt(data$perc_missing_itemscores)
+data$perc_missing_itemscores_cubert <- data$perc_missing_itemscores^(1/3)
+data$perc_missing_itemscores_log <- log(data$perc_missing_itemscores)
+data$perc_missing_itemscores_ihs <- asinh(data$perc_missing_itemscores)
+lambda <- boxcox(lm(perc_missing_itemscores +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$perc_missing_itemscores_boxcox <- (data$perc_missing_itemscores^best_lambda - 1) / best_lambda
+data$perc_missing_itemscores_rank <- qnorm(rank(data$perc_missing_itemscores, ties.method = "average") / (nrow(data) + 1))
+
+par(mfrow = c(3, 2))
+hist(data$perc_missing_itemscores_sqrt, main = "Square Root")
+hist(data$perc_missing_itemscores_cubert, main = "Cube Root")
+hist(data$perc_missing_itemscores_log, main = "Log")
+hist(data$perc_missing_itemscores_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$perc_missing_itemscores_boxcox, main = "Box-Cox")
+hist(data$perc_missing_itemscores_rank, main = "Rank-Based Normalization")
+#the log looks best
+
+#remove the other variables
+data <- data %>% dplyr::select(-perc_missing_itemscores_sqrt, -perc_missing_itemscores_cubert, -perc_missing_itemscores_log, -perc_missing_itemscores_ihs, -perc_missing_itemscores_boxcox, -perc_missing_itemscores_rank)
+
+#normalise the variable with the log (as was done in PISA)
+data$normalisedperc_missing_itemscores <- log(data$perc_missing_itemscores)
+
+# Replace -Inf values in the column normalisedperc_missing_itemscores with the smallest finite value in the same column, to maintain consistent and meaningful data.
+data$normalisedperc_missing_itemscores[data$normalisedperc_missing_itemscores == -Inf] <- min(data$normalisedperc_missing_itemscores[is.finite(data$normalisedperc_missing_itemscores)], na.rm = TRUE)
+```
+
+### Extreme times
+```{r}
+hist(data$perc_littletime)
+hist(data$perc_muchtime)
+```
+Let's normalise these
+
+Little time
+```{r}
+#see which normalisation to take 
+data$perc_littletime_sqrt <- sqrt(data$perc_littletime)
+data$perc_littletime_cubert <- data$perc_littletime^(1/3)
+data$perc_littletime_log <- log(data$perc_littletime)
+data$perc_littletime_ihs <- asinh(data$perc_littletime)
+lambda <- boxcox(lm(perc_littletime +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$perc_littletime_boxcox <- (data$perc_littletime^best_lambda - 1) / best_lambda
+data$perc_littletime_rank <- qnorm(rank(data$perc_littletime, ties.method = "average") / (nrow(data) + 1))
+
+par(mfrow = c(3, 2))
+hist(data$perc_littletime_sqrt, main = "Square Root")
+hist(data$perc_littletime_cubert, main = "Cube Root")
+hist(data$perc_littletime_log, main = "Log")
+hist(data$perc_littletime_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$perc_littletime_boxcox, main = "Box-Cox")
+hist(data$perc_littletime_rank, main = "Rank-Based Normalization")
+#the log looks best
+
+#remove the other variables
+data <- data %>% dplyr::select(-perc_littletime_sqrt, -perc_littletime_cubert, -perc_littletime_log, -perc_littletime_ihs, -perc_littletime_boxcox, -perc_littletime_rank)
+
+#normalise the variable with the log (as was done in PISA)
+data$normalisedperc_littletime <- log(data$perc_littletime)
+
+# replace -Inf values in the column normalisedperc_littletime with the smallest finite value in the same column, to maintain consistent and meaningful data.
+data$normalisedperc_littletime[data$normalisedperc_littletime == -Inf] <- min(data$normalisedperc_littletime[is.finite(data$normalisedperc_littletime)], na.rm = TRUE)
+```
+
+Much time
+```{r}
+# see which normalisation to take
+data$perc_muchtime_sqrt <- sqrt(data$perc_muchtime)
+data$perc_muchtime_cubert <- data$perc_muchtime^(1/3)
+data$perc_muchtime_log <- log(data$perc_muchtime)
+data$perc_muchtime_ihs <- asinh(data$perc_muchtime)
+lambda <- boxcox(lm(perc_muchtime +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$perc_muchtime_boxcox <- (data$perc_muchtime^best_lambda - 1) / best_lambda
+data$perc_muchtime_rank <- qnorm(rank(data$perc_muchtime, ties.method = "average") / (nrow(data) + 1))
+  
+par(mfrow = c(3, 2))
+hist(data$perc_muchtime_sqrt, main = "Square Root")
+hist(data$perc_muchtime_cubert, main = "Cube Root")
+hist(data$perc_muchtime_log, main = "Log")
+hist(data$perc_muchtime_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$perc_muchtime_boxcox, main = "Box-Cox")
+hist(data$perc_muchtime_rank, main = "Rank-Based Normalization")
+#the log looks best again
+
+#remove the other variables
+data <- data %>% dplyr::select(-perc_muchtime_sqrt, -perc_muchtime_cubert, -perc_muchtime_log, -perc_muchtime_ihs, -perc_muchtime_boxcox, -perc_muchtime_rank)
+
+#normalise the variable with the log (as was done in PISA)
+data$normalisedperc_muchtime <- log(data$perc_muchtime)
+
+# replace -Inf values in the column normalisedperc_muchtime with the smallest finite value in the same column, to maintain consistent and meaningful data.
+data$normalisedperc_muchtime[data$normalisedperc_muchtime == -Inf] <- min(data$normalisedperc_muchtime[is.finite(data$normalisedperc_muchtime)], na.rm = TRUE)
+```
+
+### general changes
+```{r factors etc}
+data <- data %>% 
+  zap_labels() %>%
+  # Rename the variable ASBG01 to gender, NA = 9 is coded as NA
+    mutate(
+      gender = as.character(ASBG01),
+      gender = dplyr::recode(gender, 
+                      `9` = NA_character_, 
+                      .default = gender), # Keep all other values the same
+      gender = as.factor(gender)
+    ) %>%
+    dplyr::select(-ASBG01) %>%  # Drop the original variable
+    
+    # Rename ASBG07 to Native, NA = 9 is coded as NA
+    mutate(
+      Native = as.numeric(ASBG07), 
+      Native = dplyr::recode(Native, 
+                     `1` = 1,
+                     `2` = 0,
+                     `9` = NA_real_, 
+                     .default = Native), # Keep all other values the same
+      Native = as.factor(Native)
+    ) %>%
+    dplyr::select(-ASBG07) %>%  # Drop the original variable
+    
+    # convert person_id to factor
+    mutate(person_id = as.factor(person_id)) %>%
+    
+    #convert the variables ASMMAT01 - ASMMAT05 to numeric
+    mutate(
+      across(
+        starts_with("ASMMAT") | starts_with("WGTFAC"), 
+        ~ as.numeric(as.character(.))
+      )
+    ) %>%
+    
+    # Standardize numerical variables
+    #mutate(across(where(is.numeric), ~ scale(.) %>% as.vector()))
+    mutate(across(where(is.numeric), as.double))
+  
+  # Convert all character variables to factors
+  data[sapply(data, is.character)] <- lapply(data[sapply(data, is.character)], as.factor)
+```
+
+Make many little time (Fast Students) and many much time (Slow Students)
+```{r}
+#many little time is when a person is in the top 20%
+data$many_little_time <- ifelse(
+  data$normalisedperc_littletime > quantile(data$normalisedperc_littletime, probs = 0.8, na.rm = TRUE), 
+                                1, 
+                                0)
+
+#many much time is when a person is in the top 20%  
+data$many_much_time <- ifelse(
+  data$normalisedperc_muchtime > quantile(data$normalisedperc_muchtime, probs = 0.8, na.rm = TRUE), 
+                                1, 
+                                0)
+```
+
+Only keep 1 row per person
+```{r keep only 1 row per person}
+data <- data %>%
+  distinct(person_id, .keep_all = TRUE)  # Keeps only the first occurrence of each person_id
+```
+
+Split the data into NL and Others
+```{r split nl others}
+dataTIMSSNL <- data %>%
+  filter(country == "Netherlands")
+dataTIMSSOthers <- data %>%
+  filter(country != "Netherlands")
+```
+
+Save the data
+```{r}
+save(data, dataTIMSSNL, dataTIMSSOthers, file = "../IntermediateData/TIMSSdata.RData")
+```
+
+
+
+# Splitting into train and test data
+
+Import data
+```{r import both datasets}
+rm(list = ls())
+load("../IntermediateData/TIMSSdata.RData") #TIMSS data
+load("../IntermediateData/PISAdata.RData") #PISA data
+
+#remove data object
+rm(data)
+```
+
+Split the data into train and test sets
+```{r split into train and test}
+# Split all 4 datasets up into 2: train and test set
+
+# PISA 
+set.seed(123)
+samplePISANL <- sample(c(TRUE, FALSE), nrow(dataPISANL), replace=TRUE, prob=c(0.5,0.5))
+traindataPISANL  <- dataPISANL[samplePISANL, ]
+testdataPISANL   <- dataPISANL[!samplePISANL, ]
+
+set.seed(123)
+samplePISAOthers <- sample(c(TRUE, FALSE), nrow(dataPISAOthers), replace=TRUE, prob=c(0.5,0.5))
+traindataPISAOthers  <- dataPISAOthers[samplePISAOthers, ]
+testdataPISAOthers   <- dataPISAOthers[!samplePISAOthers, ]
+
+# TIMSS
+set.seed(123)
+sampleTIMSSNL <- sample(c(TRUE, FALSE), nrow(dataTIMSSNL), replace=TRUE, prob=c(0.5,0.5))
+traindataTIMSSNL  <- dataTIMSSNL[sampleTIMSSNL, ]
+testdataTIMSSNL   <- dataTIMSSNL[!sampleTIMSSNL, ]
+
+set.seed(123)
+sampleTIMSSOthers <- sample(c(TRUE, FALSE), nrow(dataTIMSSOthers), replace=TRUE, prob=c(0.5,0.5))
+traindataTIMSSOthers  <- dataTIMSSOthers[sampleTIMSSOthers, ]
+testdataTIMSSOthers   <- dataTIMSSOthers[!sampleTIMSSOthers, ]
+```
+
+
+Combine all test sets into one and all train sets into one
+```{r combine into one train and one test set}
+# Combine all test sets into one, making a new variable whichData indicating from which dataset the data comes
+testdata <- bind_rows(
+  PISANL = testdataPISANL, 
+  PISAOthers = testdataPISAOthers, 
+  TIMSSNL = testdataTIMSSNL, 
+  TIMSSOthers = testdataTIMSSOthers, 
+  .id = "whichData"
+)
+
+# Combine all train sets into one
+traindata <- bind_rows(
+  PISANL = traindataPISANL,
+  PISAOthers = traindataPISAOthers,
+  TIMSSNL = traindataTIMSSNL,
+  TIMSSOthers = traindataTIMSSOthers,
+  .id = "whichData"
+)
+```
+
+```{r standardise variables}
+#standardise total_response_time
+traindata <- traindata %>%
+    group_by(whichData) %>%
+    mutate(across(c(mean_response_time, effort, normalisedperc_littletime, normalisedperc_muchtime, normalisedperc_missing_itemscores), 
+                  ~ scale(.x) %>% as.vector())) %>%
+    ungroup()
+
+testdata <- testdata %>%
+    group_by(whichData) %>%
+    mutate(across(c(mean_response_time, effort, normalisedperc_littletime, normalisedperc_muchtime, normalisedperc_missing_itemscores), 
+                  ~ scale(.x) %>% as.vector())) %>%
+    ungroup()
+
+#make whichData variable a factor 
+traindata$whichData <- as.factor(traindata$whichData)
+testdata$whichData <- as.factor(testdata$whichData)
+```
+
+### Save the final datasets
+```{r}
+#save the data
+save(traindata, testdata, file = "../../Data/TestTrainData.RData")
+```

@@ -1,0 +1,5 @@
+"0","dataTIMSS <- data"
+"0","load(""../IntermediateData/PISAdata.RData"") #PISA data"
+"0","dataPISA <- data"
+"0","rm(data)"
+"0","dataPISA %>% count(item_score, is.na(response_time))"

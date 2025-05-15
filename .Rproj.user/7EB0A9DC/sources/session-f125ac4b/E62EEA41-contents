@@ -1,0 +1,386 @@
+---
+title: "PISA Data Cleaning"
+author: "Jasmijn Bazen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r libraries, include = FALSE}
+packages <- c( "MASS", "dplyr", "haven", "reshape2", "ggplot2", "tidyverse", "tidyr")
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+invisible(lapply(packages, library, character.only = TRUE))
+
+rm(installed_packages, packages)
+```
+
+# Getting the dataset ready 
+```{r Load Data, include=FALSE}
+rm(list = ls())
+data <- readRDS("../Data/pisa18_m.RDS")
+data <- data.frame(data)
+```
+
+
+### Label countries differently
+
+Austria	AUT	40
+Denmark	DNK	208
+England	ENG	926
+Finland	FIN	246
+France	FRA	250
+Germany	DEU	276
+Italy	  ITA	380
+Netherlands	NLD	528
+Portugal	PRT	620
+Spain	ESP	724
+Sweden	SWE	752
+
+BEL  Belgium
+GRC  Greece
+IRL  Ireland
+GBR  United Kingdom
+```{r}
+data$country <- case_when(
+  data$CNT == "AUT"  ~ "Austria",
+  data$CNT == "DNK" ~ "Denmark",
+  data$CNT == "ENG" ~ "England",
+  data$CNT == "FIN" ~ "Finland",
+  data$CNT == "FRA" ~ "France",
+  data$CNT == "DEU" ~ "Germany",
+  data$CNT == "ITA" ~ "Italy",
+  data$CNT == "NLD" ~ "Netherlands",
+  data$CNT == "PRT" ~ "Portugal",
+  data$CNT == "ESP" ~ "Spain",
+  data$CNT == "SWE" ~ "Sweden",
+  data$CNT == "BEL" ~ "Belgium",
+  data$CNT == "GRC" ~ "Greece",
+  data$CNT == "IRL" ~ "Ireland",
+  data$CNT == "GBR" ~ "United Kingdom"
+)
+
+
+#filter only rows where country is not NA
+data <- data %>% 
+  filter(!is.na(country))
+```
+
+
+### Change response time to seconds, instead of milliseconds
+```{r response time to seconds}
+data <- data %>%
+  mutate(response_time = (data$response_time/1000))
+```
+
+### Make a unique student identifier
+```{r unique student identifier}
+data <- data %>% 
+  mutate(person_id = paste(CNTSCHID, CNTSTUID, sep = "_"))
+```
+
+```{r}
+threshold <- quantile(data$response_time, probs = 0.10, na.rm = TRUE)
+threshold2 <- quantile(data$response_time, probs = 0.90, na.rm = TRUE)
+
+pp <- data %>%
+  mutate(item_score = ifelse(item_score> 2, NA, item_score)) %>%
+  group_by(person_id) %>%
+  summarise(booklet_size = n_distinct(item_id),
+            number_of_answered_items = sum(!is.na(item_score)),
+            total_response_time = sum(response_time, na.rm = TRUE),
+            mean_response_time = mean(response_time, na.rm = TRUE),
+            perc_missing_itemscores = mean(is.na(item_score)),
+            perc_missing_responsetimes = mean(is.na(response_time)),
+            perc_littletime = mean(response_time < threshold, na.rm = TRUE),
+            perc_muchtime = mean(response_time > threshold2, na.rm = TRUE),
+            .groups = "drop")
+
+#add the variables from pp to data
+data <- data %>%
+  left_join(pp, by = "person_id")
+```
+
+# Change PVs
+```{r}
+# only keep first 5 PVs
+data <- data %>%
+  dplyr::select(-PV6MATH, -PV7MATH, -PV8MATH, -PV9MATH, -PV10MATH)
+
+#scale the PVs all together, so that their collective mean is 0 and their collective sd is 1 (previously mean 499, sd 87.8, code to calculate in comment below)
+# combined_values <- as.vector(as.matrix(data[, c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH")]))
+# mean(combined_values)  
+# sd(combined_values)
+data[, c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH")] <- 
+  matrix(scale(as.vector(as.matrix(data[, c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH")]))),
+         nrow = nrow(data))
+
+#rename them to PV1 : PV5
+data <- data %>%
+  rename(PV1 = PV1MATH, PV2 = PV2MATH, PV3 = PV3MATH, PV4 = PV4MATH, PV5 = PV5MATH)
+```
+
+
+Response times
+```{r RTs}
+summary(data$response_time)
+# 5min = 300 seconds, 5095 seconds = 1.4 hours -> recode everything more than 15 minutes = 900 seconds to 900 seconds
+
+n_distinct(data$person_id[data$response_time > 900]) 
+#517 scores will be changed
+
+data <- data %>%
+  mutate(response_time = ifelse(response_time > 900, # test
+                                900,                  # test = yes
+                                response_time))       # test = no
+
+ggplot(data, aes(x = response_time)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "blue") +
+  geom_vline(xintercept=threshold, color="red") +
+  geom_vline(xintercept=threshold2, color="red") +
+  labs(title = "Response Time Distribution (for every person & item comibnation)", x = "Response Times", y = "Frequency") #the warning is on the NAs 
+
+hist(data$total_response_time, main = "Total Response Times", xlab = "Total Response Time")
+summary(data$total_response_time)
+
+#delete people with more than 20% missing response times
+sum(data$perc_missing_responsetimes > 0.2)/nrow(data) #2.7% of the observations will be removed from the data 
+
+n_distinct(data$person_id[data$perc_missing_responsetimes > .2]) 
+
+
+
+data <- data %>%
+  filter(perc_missing_responsetimes <= 0.2)
+
+
+hist(data$mean_response_time, main = "Mean Response Times", xlab = "Mean Response Time")
+```
+Conclusion: Let's use the mean response times like for TIMSS
+
+Missing item score
+```{r}
+#remove people with more than 80% missing items
+sum(data$perc_missing_itemscores >= 0.8)/nrow(data) #0% of the observations will be removed from the data
+data <- data %>% filter(perc_missing_itemscores < 0.8)
+
+hist(data$perc_missing_itemscores)
+table(data$perc_missing_itemscores)
+
+#see which normalisation to take 
+data$perc_missing_itemscores_sqrt <- sqrt(data$perc_missing_itemscores)
+data$perc_missing_itemscores_cubert <- data$perc_missing_itemscores^(1/3)
+data$perc_missing_itemscores_log <- log(data$perc_missing_itemscores)
+data$perc_missing_itemscores_ihs <- asinh(data$perc_missing_itemscores)
+lambda <- boxcox(lm(perc_missing_itemscores +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$perc_missing_itemscores_boxcox <- (data$perc_missing_itemscores^best_lambda - 1) / best_lambda
+data$perc_missing_itemscores_rank <- qnorm(rank(data$perc_missing_itemscores, ties.method = "average") / (nrow(data) + 1))
+
+par(mfrow = c(3, 2))
+hist(data$perc_missing_itemscores_sqrt, main = "Square Root")
+hist(data$perc_missing_itemscores_cubert, main = "Cube Root")
+hist(data$perc_missing_itemscores_log, main = "Log")
+hist(data$perc_missing_itemscores_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$perc_missing_itemscores_boxcox, main = "Box-Cox")
+hist(data$perc_missing_itemscores_rank, main = "Rank-Based Normalization")
+#the log looks best again (like in TIMSS)
+
+data <- data %>% dplyr::select(-perc_missing_itemscores_sqrt, -perc_missing_itemscores_cubert, -perc_missing_itemscores_log, -perc_missing_itemscores_ihs, -perc_missing_itemscores_boxcox, -perc_missing_itemscores_rank)
+
+
+data$normalisedperc_missing_itemscores <- log(data$perc_missing_itemscores)
+
+data$normalisedperc_missing_itemscores[data$normalisedperc_missing_itemscores == -Inf] <- min(data$normalisedperc_missing_itemscores[is.finite(data$normalisedperc_missing_itemscores)], na.rm = TRUE)
+
+hist(data$normalisedperc_missing_itemscores)
+summary(data$normalisedperc_missing_itemscores)
+```
+
+
+Extreme times
+```{r}
+hist(data$perc_littletime)
+hist(data$perc_muchtime)
+```
+Let's normalise these
+
+Little time
+```{r}
+data$perc_littletime_sqrt <- sqrt(data$perc_littletime)
+data$perc_littletime_cubert <- data$perc_littletime^(1/3)
+data$perc_littletime_log <- log(data$perc_littletime)
+data$perc_littletime_ihs <- asinh(data$perc_littletime)
+lambda <- boxcox(lm(perc_littletime +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$perc_littletime_boxcox <- (data$perc_littletime^best_lambda - 1) / best_lambda
+data$perc_littletime_rank <- qnorm(rank(data$perc_littletime, ties.method = "average") / (nrow(data) + 1))
+
+par(mfrow = c(3, 2))
+hist(data$perc_littletime_sqrt, main = "Square Root")
+hist(data$perc_littletime_cubert, main = "Cube Root")
+hist(data$perc_littletime_log, main = "Log")
+hist(data$perc_littletime_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$perc_littletime_boxcox, main = "Box-Cox")
+hist(data$perc_littletime_rank, main = "Rank-Based Normalization")
+#the log looks best again
+
+data <- data %>% dplyr::select(-perc_littletime_sqrt, -perc_littletime_cubert, -perc_littletime_log, -perc_littletime_ihs, -perc_littletime_boxcox, -perc_littletime_rank)
+
+data$normalisedperc_littletime <- log(data$perc_littletime)
+
+data$normalisedperc_littletime[data$normalisedperc_littletime == -Inf] <- min(data$normalisedperc_littletime[is.finite(data$normalisedperc_littletime)], na.rm = TRUE)
+
+```
+Much time
+```{r}
+data$perc_muchtime_sqrt <- sqrt(data$perc_muchtime)
+data$perc_muchtime_cubert <- data$perc_muchtime^(1/3)
+data$perc_muchtime_log <- log(data$perc_muchtime)
+data$perc_muchtime_ihs <- asinh(data$perc_muchtime)
+lambda <- boxcox(lm(perc_muchtime +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$perc_muchtime_boxcox <- (data$perc_muchtime^best_lambda - 1) / best_lambda
+data$perc_muchtime_rank <- qnorm(rank(data$perc_muchtime, ties.method = "average") / (nrow(data) + 1))
+  
+par(mfrow = c(3, 2))
+hist(data$perc_muchtime_sqrt, main = "Square Root")
+hist(data$perc_muchtime_cubert, main = "Cube Root")
+hist(data$perc_muchtime_log, main = "Log")
+hist(data$perc_muchtime_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$perc_muchtime_boxcox, main = "Box-Cox")
+hist(data$perc_muchtime_rank, main = "Rank-Based Normalization")
+#the log looks best again
+
+data <- data %>% dplyr::select(-perc_muchtime_sqrt, -perc_muchtime_cubert, -perc_muchtime_log, -perc_muchtime_ihs, -perc_muchtime_boxcox, -perc_muchtime_rank)
+  
+data$normalisedperc_muchtime <- log(data$perc_muchtime)
+
+data$normalisedperc_muchtime[data$normalisedperc_muchtime == -Inf] <- min(data$normalisedperc_muchtime[is.finite(data$normalisedperc_muchtime)], na.rm = TRUE)
+```
+
+```{r}
+data <- data %>%
+  mutate(item_type_open = case_when(
+    item_type %in% c("Open Response - Computer Scored", "Open Response - Human Coded") ~ "Open Response",
+    TRUE ~ item_type  # Retain original value for other cases
+  ))
+
+data <- data %>%
+  mutate(item_type_open = case_when(
+    item_type_open %in% c("Simple Multiple Choice - Computer Scored") ~ "Simple Multiple Choice", 
+    TRUE ~ item_type_open
+  ))
+
+data <- data %>%
+  mutate(item_type_open = case_when(
+    item_type_open %in% c("Complex Multiple Choice - Computer Scored") ~ "Complex Multiple Choice", 
+    TRUE ~ item_type_open
+  ))
+```
+
+
+### SES / ESCS (economic, social and cultural status)
+High -> high shooling of parents, high income, etc
+```{r}
+str(data$ESCS)
+summary(data$ESCS)
+mean(data$ESCS, na.rm = TRUE)
+sd(data$ESCS, na.rm = TRUE)
+#rename ESCS to SES
+data <- data %>%
+  rename(SES = ESCS)
+```
+
+Make sure all the variables have the correct format and distributions
+```{r factors etc}
+# Ensure EFFORT1 and EFFORT2 are numeric
+data$EFFORT1 <- as.numeric(data$EFFORT1)
+data$EFFORT2 <- as.numeric(data$EFFORT2)
+#change values about 10 to NA
+data$EFFORT1 <- ifelse(data$EFFORT1 > 10, NA, data$EFFORT1)
+data$EFFORT2 <- ifelse(data$EFFORT2 > 10, NA, data$EFFORT2)
+
+#rename ST004D01T to gender with the mutate function
+data <- data %>%
+  mutate(
+        gender = ST004D01T -1,
+        gender = as.factor(gender)
+      ) 
+
+#make variable native
+data <- data %>%
+  mutate(
+      Native = as.numeric(IMMIG),
+      Native = dplyr::recode(Native, 
+                     `1` = 1,
+                     `2` = 1,
+                     `3` = 0,
+                     `5` = NA_real_,
+                     `7` = NA_real_,
+                     `8` = NA_real_,
+                     `9` = NA_real_, 
+                     .default = Native), # Keep all other values the same
+      Native = as.factor(Native)) %>%
+  
+  # Convert specific variables to factors
+    mutate(across(
+      c(CNTSCHID, CNTSTUID, BOOKID, ST004D01T, ST019AQ01T, ST127Q03TA, Native), 
+      as.factor
+    )) %>%
+    # Convert certain variables to integers
+    mutate(across(
+      c(EFFORT1, EFFORT2), 
+      as.integer
+    )) %>%
+    # Standardize numerical variables
+    #mutate(across(where(is.numeric), ~ scale(.) %>% as.vector()))
+    mutate(across(where(is.numeric), as.double))
+  
+  # Convert all character variables to factors
+  data[sapply(data, is.character)] <- lapply(data[sapply(data, is.character)], as.factor)
+  
+#make new variable effort
+data <- data %>% 
+  dplyr::mutate(effort = (EFFORT2 - EFFORT1), na.rm = TRUE)
+```
+
+
+Make many little time and many much time
+```{r}
+#many little time is when a person is in the top 20%
+data$many_little_time <- ifelse(
+  data$normalisedperc_littletime > quantile(data$normalisedperc_littletime, probs = 0.8, na.rm = TRUE), 
+                                1, 
+                                0)
+
+#many much time is when a person is in the top 20%  
+data$many_much_time <- ifelse(
+  data$normalisedperc_muchtime > quantile(data$normalisedperc_muchtime, probs = 0.8, na.rm = TRUE), 
+                                1, 
+                                0)
+```
+
+Only keep 1 row per person
+```{r keep only 1 row per person}
+data <- data %>%
+  distinct(person_id, .keep_all = TRUE)  # Keeps only the first occurrence of each person_id
+```
+
+Split the data into NL and Others
+```{r split nl others}
+dataPISANL <- data %>%
+  filter(country == "Netherlands")
+dataPISAOthers <- data %>%
+  filter(country != "Netherlands")
+```
+
+
+Save the data
+```{r save data}
+save(data, dataPISAOthers, dataPISANL, file = "../Data/PISAdata.RData")
+```
+
+

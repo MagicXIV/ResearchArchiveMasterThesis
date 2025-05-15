@@ -1,0 +1,628 @@
+---
+title: "Data Modelling"
+author: "Jasmijn Bazen"
+date: "15-05-2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Welcome to the data modelling part of the project! In this part, the SEM model will be constructed. To do so, first a model will be fitted to the train data. This will be at first done per group, and only for the latent variable Motivation. When this is done, these 4 models will be combined into one big multi-group SEM model, where also Ability will be modeled. When this fits, the complete multi-group SEM model will be fitted to the test data. 
+
+```{r load packages}
+packages <- c("lavaan", "lavaanPlot", "tidyr")
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+invisible(lapply(packages, library, character.only = TRUE))
+```
+Packages and version numbers used for all 3 scripts combined:
+gridExtra_2.3    
+hrbrthemes_0.8.7  
+lavaanPlot_0.8.1  
+lavaan_0.6-19 
+lubridate_1.9.3  
+forcats_1.0.0  
+stringr_1.5.1   
+purrr_1.0.2    
+readr_2.1.5     
+tidyr_1.3.1    
+tibble_3.2.1   
+tidyverse_2.0.0  
+ggplot2_3.5.1   
+reshape2_1.4.4  
+haven_2.5.4     
+dplyr_1.1.4    
+MASS_7.3-60.2
+
+Load data
+```{r load data}
+rm(list = ls())
+load("../Data/TestTrainData.RData")
+```
+
+Split up in datasets
+```{r split up data}
+PISANL <- as.data.frame(traindata[traindata$whichData == "PISANL", ])
+PISAOthers <- as.data.frame(traindata[traindata$whichData == "PISAOthers", ])
+TIMSSNL <- as.data.frame(traindata[traindata$whichData == "TIMSSNL", ])
+TIMSSOthers <- as.data.frame(traindata[traindata$whichData == "TIMSSOthers", ])
+```
+
+
+
+# PISA NL
+
+## Correlations
+```{r pisa nl Correlations}
+PISANL %>% 
+  dplyr::select(mean_response_time, normalisedperc_missing_itemscores, effort, normalisedperc_littletime, normalisedperc_muchtime, many_little_time, many_much_time) %>%
+  cor(use = "pairwise.complete.obs")
+#all normalised oercentage missing item scores in PISANL are the same -> no variance -> NA values
+
+PISANL %>% 
+  dplyr::select(mean_response_time, effort, normalisedperc_littletime, normalisedperc_muchtime, many_little_time, many_much_time) %>%
+  cor(use = "pairwise.complete.obs")
+
+rowSums(abs(PISANL %>% 
+  dplyr::select(mean_response_time, effort, normalisedperc_littletime, normalisedperc_muchtime, many_little_time, many_much_time) %>%
+  cor(use = "pairwise.complete.obs")))
+#effort isn't as highly correlated with the others as the others, but it is also the only non-time variable
+```
+
+## Histograms
+```{r pisa nl hist}
+hist(PISANL$mean_response_time)
+hist(PISANL$effort)
+hist(PISANL$normalisedperc_littletime)
+hist(PISANL$normalisedperc_muchtime)
+```
+
+## The Model
+```{r pisa nl model}
+MotivationModel <- '
+Motivation =~ mean_response_time + effort + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+normalisedperc_muchtime ~~ many_much_time
+mean_response_time ~~ many_much_time
+normalisedperc_littletime ~~ many_little_time
+'
+fit <- sem(MotivationModel, 
+           data = PISANL,
+           # group = "whichData",
+           estimator = "MLR"
+           )   #no warnings :)
+
+summary(fit, standardized = TRUE, fit.measures = TRUE)
+```
+- The \chi^2 is non-significant, with a value of 2.542 (p = 0.468), indicating good model fit
+- The CFI and TLI are 1.000 and 1.001 respectively
+- The robust RMSEA is 0.000, indicating great model fit
+- The SRMR is 0.008, indicating good model fit
+- All factor loadings are highly significant
+- The covariances are all significant
+- All variances are positive
+
+
+
+
+# PISA Others
+
+## Correlations
+```{r pisa others Correlations}
+PISAOthers %>% 
+  dplyr::select(mean_response_time, normalisedperc_missing_itemscores, effort, normalisedperc_littletime, normalisedperc_muchtime, many_little_time, many_much_time) %>%
+  cor(use = "pairwise.complete.obs")
+#Here, there are multiple different values for the normalisedperc_missing_itemscores
+
+rowSums(abs(PISAOthers %>% 
+  dplyr::select(mean_response_time, effort, normalisedperc_missing_itemscores, normalisedperc_littletime, normalisedperc_muchtime, many_little_time, many_much_time) %>%
+  cor(use = "pairwise.complete.obs")))
+#again, effort does not correlated as much with the rest, and neither does normalisedperc_littletime.
+# normalisedperc_missing_itemscores seems to not be correlated "at all" with the other variables.
+```
+
+## Histograms
+```{r pisa others hist}
+hist(PISAOthers$mean_response_time)
+hist(PISAOthers$effort)
+hist(PISAOthers$normalisedperc_missing_itemscores)
+hist(PISAOthers$normalisedperc_littletime)
+hist(PISAOthers$normalisedperc_muchtime)
+
+table(PISAOthers$normalisedperc_missing_itemscores)
+```
+It makes sense that normalisedperc_missing_itemscores is not correlated with the other variables, as it does not have a lot of variation (variance is still 1 though)
+
+## The Model
+```{r pisa others model}
+MotivationModel <- '
+Motivation =~ mean_response_time + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time
+
+# residual covariances
+mean_response_time ~~ many_much_time
+mean_response_time ~~ normalisedperc_muchtime
+normalisedperc_muchtime ~~ many_much_time
+'
+fit <- sem(MotivationModel, 
+           data = PISAOthers,
+           # group = "whichData",
+           estimator = "MLR"
+           )   # no warnings :)
+
+summary(fit, standardized = TRUE, fit.measures = TRUE)
+```
+The model has also been tried without the residual covariance first
+
+The model seems to fit the data nicely:
+- The \chi^2 is non-significant, with a value of 12.012 (p = 0.063), indicating good model fit
+- The CFI and TLI are both 1.000, indicating great model fit
+- The robust RMSEA is 0.007, indicating a great model fit
+- The SRMR is 0.005, indicating a good model fit
+- All factor loadings are highly significant
+- The covariances are all significant
+- All variances are positive (or 0)
+
+
+# TIMSS NL
+
+## Correlations
+```{r timss nl Correlations}
+TIMSSNL %>% 
+  dplyr::select(mean_response_time, normalisedperc_missing_itemscores, normalisedperc_littletime, normalisedperc_muchtime, many_little_time, many_little_time) %>%
+  cor(use = "pairwise.complete.obs")
+#Here, there are multiple different values for the normalisedperc_missing_itemscores again
+
+rowSums(abs(TIMSSNL %>% 
+  dplyr::select(mean_response_time, normalisedperc_missing_itemscores, normalisedperc_littletime, normalisedperc_muchtime, many_little_time, many_little_time) %>%
+  cor(use = "pairwise.complete.obs")))
+# normalisedperc_missing_itemscores seems to not be correlated as much with the other variables again
+```
+
+## Histograms
+```{r timss nl hist}
+hist(TIMSSNL$mean_response_time)
+hist(TIMSSNL$normalisedperc_missing_itemscores)
+hist(TIMSSNL$normalisedperc_littletime)
+hist(TIMSSNL$normalisedperc_muchtime)
+```
+Missingness:
+```{r missingness}
+sum(is.na(TIMSSNL$mean_response_time))
+sum(is.na(TIMSSNL$normalisedperc_missing_itemscores))
+sum(is.na(TIMSSNL$normalisedperc_littletime))
+sum(is.na(TIMSSNL$normalisedperc_muchtime))
+sum(is.na(TIMSSNL$many_little_time))
+sum(is.na(TIMSSNL$many_much_time))
+```
+
+## The Model
+```{r timss nl model}
+MotivationModel <- '
+Motivation =~ mean_response_time + normalisedperc_missing_itemscores + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_missing_itemscores
+normalisedperc_missing_itemscores ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_littletime
+'
+fit <- sem(MotivationModel, 
+           data = TIMSSNL,
+           # group = "whichData",
+           estimator = "MLR"
+           )   #no warnings :)
+
+summary(fit, standardized = TRUE, fit.measures = TRUE)
+```
+- The \chi^2 is significant, with a value of 5.709 (p = 0.017), indicating bad model fit
+- The CFI and TLI are 0.999 and 0.986 respectively, indicating great model fit (>.95)
+- The (robust) RMSEA is 0.054, indicating an acceptable model fit (not <.05, but lower than .08)
+- The SRMR is 0.010, indicating a good model fit (<.08)
+
+
+
+# TIMSS Others
+
+## Correlations
+```{r timss others Correlations}
+TIMSSOthers %>% 
+  dplyr::select(mean_response_time, normalisedperc_missing_itemscores, normalisedperc_littletime, normalisedperc_muchtime, many_little_time, many_little_time) %>%
+  cor(use = "pairwise.complete.obs")
+#Here, there are multiple different values for the normalisedperc_missing_itemscores again
+
+rowSums(abs(TIMSSOthers %>% 
+  dplyr::select(mean_response_time, normalisedperc_missing_itemscores, normalisedperc_littletime, normalisedperc_muchtime, many_little_time, many_little_time) %>%
+  cor(use = "pairwise.complete.obs")))
+# normalisedperc_missing_itemscores seems to not be correlated as much with the other variables again
+```
+
+## Histograms
+```{r timss others hist}
+hist(TIMSSOthers$mean_response_time)
+hist(TIMSSOthers$normalisedperc_missing_itemscores)
+hist(TIMSSOthers$normalisedperc_littletime)
+hist(TIMSSOthers$normalisedperc_muchtime)
+```
+
+## The Model
+```{r timss others model}
+MotivationModel <- '
+Motivation =~ mean_response_time + normalisedperc_missing_itemscores + normalisedperc_littletime + normalisedperc_muchtime + many_little_time
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_missing_itemscores
+normalisedperc_missing_itemscores ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_littletime
+'
+fit <- sem(MotivationModel, 
+           data = TIMSSOthers,
+           # group = "whichData",
+           estimator = "MLR"
+           )   #no warnings :)
+
+summary(fit, standardized = TRUE, fit.measures = TRUE)
+```
+- The \chi^2 is significant, with a value of 168.706 (p = 0.000), indicating bad model fit
+- The CFI and TLI are .997 and .969 respectively, indicating good model fit
+- The (robust) RMSEA is 0.078, indicating an acceptable model fit
+- The SRMR is 0.015, indicating a good model fit
+- All factor loadings are highly significant
+- The covariances are all significant
+- All variances are positive
+
+
+
+
+# All Train Datasets 
+
+### Model without Ability
+```{r model without ability}
+#specify the model
+MotivationModel <- '
+group: 1
+Motivation =~ mean_response_time + effort + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+normalisedperc_muchtime ~~ many_much_time
+mean_response_time ~~ many_much_time
+normalisedperc_littletime ~~ many_little_time
+
+
+group: 2
+Motivation =~ mean_response_time + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time
+
+# residual covariances
+mean_response_time ~~ many_much_time
+mean_response_time ~~ normalisedperc_muchtime
+normalisedperc_muchtime ~~ many_much_time
+
+
+group: 3
+Motivation =~ mean_response_time + normalisedperc_missing_itemscores + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_missing_itemscores
+normalisedperc_missing_itemscores ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_littletime
+
+
+group: 4
+Motivation =~ mean_response_time + normalisedperc_missing_itemscores + normalisedperc_littletime + normalisedperc_muchtime + many_little_time
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_missing_itemscores
+normalisedperc_missing_itemscores ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_littletime
+' 
+
+#change the whichData variable to a factor
+traindata$whichData <- as.factor(traindata$whichData)
+
+#fit the model
+fit <- sem(MotivationModel, 
+           data = traindata,
+           group = "whichData",
+           estimator = "MLR",
+           fixed.x = TRUE)   
+#check the model fit
+summary(fit, fit.measures = TRUE, standardized = TRUE)  
+
+#plot the model with standardized coefficients
+lavaanPlot(
+  model = fit,
+  coefs = TRUE,      # Show path coefficients
+  stand = TRUE,      # Standardized coefficients
+  sig = 0.05,        # Display significance levels
+  stars = "regress"  # Add significance stars to regressions
+)
+#plot the model with unstandardized coefficients
+lavaanPlot(
+  model = fit,
+  coefs = TRUE,      # Show path coefficients
+  stand = FALSE,      # Standardized coefficients
+  sig = 0.05,        # Display significance levels
+  stars = "regress"  # Add significance stars to regressions
+)
+```
+Warning: lavaan->lav_model_vcov():  
+   The variance-covariance matrix of the estimated parameters 
+   (vcov) does not appear to be positive definite! The 
+   smallest eigenvalue (= -8.895006e-19) is smaller than zero. 
+   This may be a symptom that the model is not identified.
+
+
+- The \chi^2 is significant, with values of 5.916, 11.341, 865.097, 216.808 (p = 0.000), indicating bad model fit *(could be due to the large sample size)*
+- The CFI and TLI are .992 and .971 respectively, indicating great model fit *(could be due to the large sample size)*
+- The (robust) RMSEA is .075, indicating an acceptable model fit 
+- The SRMR is .013, indicating a good model fit *(could be due to the large sample size)*
+- All factor loadings are highly significant 
+- The covariances are almost all significant (see non-significant below)
+       - group 1: mean_response_time ~~ normalisedperc_muchtime
+- All variances are positive
+Overall, I'd say that the model fits well
+
+
+### Model with Ability 
+```{r model with ability}
+#specify the model
+MotivationModel <- '
+group: 1
+Motivation =~ mean_response_time + effort + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time
+Ability =~ PV1 + PV2 + PV3 + PV4 + PV5
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+normalisedperc_muchtime ~~ many_much_time
+mean_response_time ~~ many_much_time
+normalisedperc_littletime ~~ many_little_time
+
+# regressions
+    Ability ~ Motivation
+
+
+group: 2
+Motivation =~ mean_response_time + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time
+Ability =~ PV1 + PV2 + PV3 + PV4 + PV5
+
+# residual covariances
+mean_response_time ~~ many_much_time
+mean_response_time ~~ normalisedperc_muchtime
+normalisedperc_muchtime ~~ many_much_time
+
+# regressions
+    Ability ~ Motivation
+
+
+group: 3
+Motivation =~ mean_response_time + normalisedperc_missing_itemscores + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time
+Ability =~ PV1 + PV2 + PV3 + PV4 + PV5
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_missing_itemscores
+normalisedperc_missing_itemscores ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_littletime
+
+# regressions
+    Ability ~ Motivation
+
+
+group: 4
+Motivation =~ mean_response_time + normalisedperc_missing_itemscores + normalisedperc_littletime + normalisedperc_muchtime + many_little_time
+Ability =~ PV1 + PV2 + PV3 + PV4 + PV5
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_missing_itemscores
+normalisedperc_missing_itemscores ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_littletime
+
+# regressions
+    Ability ~ Motivation
+' 
+
+#change the whichData variable to a factor
+traindata$whichData <- as.factor(traindata$whichData)
+
+#fit the model
+fit <- sem(MotivationModel, 
+           data = traindata,
+           group = "whichData",
+           estimator = "MLR",
+           fixed.x = TRUE)   
+#check the model fit
+summary(fit, fit.measures = TRUE, standardized = TRUE)  
+
+#plot the model with standardized coefficients
+lavaanPlot(
+  model = fit,
+  coefs = TRUE,      # Show path coefficients
+  stand = TRUE,      # Standardized coefficients
+  sig = 0.05,        # Display significance levels
+  stars = "regress"  # Add significance stars to regressions
+)
+#plot the model with unstandardized coefficients
+lavaanPlot(
+  model = fit,
+  coefs = TRUE,      # Show path coefficients
+  stand = FALSE,      # Standardized coefficients
+  sig = 0.05,        # Display significance levels
+  stars = "regress"  # Add significance stars to regressions
+)
+```
+
+
+## Include gender + Native
+```{r model gender and native fig.width = 20, fig.height = 10}
+GeneralModel <- '
+group: 1
+Motivation =~ mean_response_time + effort + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time + gender + Native
+Ability =~ PV1 + PV2 + PV3 + PV4 + PV5 + gender + Native
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+normalisedperc_muchtime ~~ many_much_time
+mean_response_time ~~ many_much_time
+normalisedperc_littletime ~~ many_little_time
+
+# regressions
+    Ability ~ Motivation
+
+
+group: 2
+Motivation =~ mean_response_time + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time  + gender + Native
+Ability =~ PV1 + PV2 + PV3 + PV4 + PV5 + gender + Native
+
+# residual covariances
+mean_response_time ~~ many_much_time
+mean_response_time ~~ normalisedperc_muchtime
+normalisedperc_muchtime ~~ many_much_time
+
+# regressions
+    Ability ~ Motivation
+
+
+group: 3
+Motivation =~ mean_response_time + normalisedperc_missing_itemscores + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + many_much_time + gender + Native
+Ability =~ PV1 + PV2 + PV3 + PV4 + PV5 + gender + Native
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_missing_itemscores
+normalisedperc_missing_itemscores ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_littletime
+
+# regressions
+    Ability ~ Motivation
+
+
+group: 4
+Motivation =~ mean_response_time + normalisedperc_missing_itemscores + normalisedperc_littletime + normalisedperc_muchtime + many_little_time + gender + Native
+Ability =~ PV1 + PV2 + PV3 + PV4 + PV5 + gender + Native
+
+# residual covariances
+mean_response_time ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_missing_itemscores
+normalisedperc_missing_itemscores ~~ normalisedperc_muchtime
+mean_response_time ~~ normalisedperc_littletime
+
+# regressions
+    Ability ~ Motivation
+' 
+
+traindata$whichData <- as.factor(traindata$whichData)
+traindata$gender <- as.numeric(traindata$gender)
+traindata$Native <- as.numeric(traindata$Native)
+
+fit <- sem(GeneralModel, 
+           data = traindata,
+           group = "whichData",
+           estimator = "MLR",
+           fixed.x = TRUE)   
+
+summary(fit, fit.measures = TRUE, standardized = TRUE)  
+
+lavaanPlot(
+  model = fit,
+  coefs = TRUE,      # Show path coefficients
+  stand = TRUE,      # Standardized coefficients
+  sig = 0.05,        # Display significance levels
+  stars = "regress"  # Add significance stars to regressions
+)
+
+lavaanPlot(
+  model = fit,
+  coefs = TRUE,      # Show path coefficients
+  stand = FALSE,      # Standardized coefficients
+  sig = 0.05,        # Display significance levels
+  stars = "regress"  # Add significance stars to regressions
+)
+
+
+#save the summary output to the Results folder
+# Create the Results folder if it doesn't exist
+if (!dir.exists("../Results")) {
+  dir.create("../Results")
+}
+
+# Redirect output to a file
+sink(file = "../Results/TrainModelSummary.txt")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+sink()  # Stop redirecting output
+```
+This is the final model to be applied to the Test dataset.
+
+
+# The testdata
+
+## All Datasets 
+```{r model testdata fig.width = 20, fig.height = 10}
+# make sure the variables are in the correct format
+testdata$whichData <- as.factor(testdata$whichData)
+testdata$gender <- as.numeric(testdata$gender)
+testdata$Native <- as.numeric(testdata$Native)
+
+#fit the model specified above
+fit <- sem(GeneralModel, 
+           data = testdata,
+           group = "whichData",
+           estimator = "MLR",
+           fixed.x = TRUE)   
+
+#look at the model fit
+summary(fit, fit.measures = TRUE, standardized = TRUE)  
+
+#plot the model with standardized coefficients
+lavaanPlot(
+  model = fit,
+  coefs = TRUE,      # Show path coefficients
+  stand = TRUE,      # Standardized coefficients
+  sig = 0.05,        # Display significance levels
+  stars = "regress"  # Add significance stars to regressions
+  , graph_options = list(layout = "circo") #or circo
+)
+
+#plot the model with unstandardized coefficients
+lavaanPlot(
+  model = fit,
+  coefs = TRUE,      # Show path coefficients
+  stand = FALSE,      # Standardized coefficients
+  sig = 0.05,        # Display significance levels
+  stars = "regress"  # Add significance stars to regressions
+)
+
+#save the summary output to the Results folder
+# Redirect output to a file
+sink(file = "../Results/TestModelSummary.txt")
+summary(fit, fit.measures = TRUE, standardized = TRUE)
+sink()  # Stop redirecting output
+```
+Warning: lavaan->lav_model_vcov():  
+   The variance-covariance matrix of the estimated parameters 
+   (vcov) does not appear to be positive definite! The 
+   smallest eigenvalue (= -3.179490e-18) is smaller than zero. 
+   This may be a symptom that the model is not identified.
+Warning: lavaan->lav_object_post_check():  
+   some estimated ov variances are negative
+   
+   
+- The \chi^2 is significant, with values of 5.854 (5.916), 15.661 (11.341), 865.097, 216.808 (p = 0.000), indicating bad model fit *(could be due to the large sample size)*
+- The CFI and TLI are .992 and .971 respectively, indicating great model fit *(could be due to the large sample size)*
+- The (robust) RMSEA is .075, indicating an acceptable model fit 
+- The SRMR is .013, indicating a good model fit *(could be due to the large sample size)*
+- All factor loadings are highly significant 
+- The covariances are almost all significant (see non-significant below)
+       - group 1: mean_response_time ~~ normalisedperc_muchtime
+- All variances are positive
+Overall, I'd say that the model fits well

@@ -1,0 +1,2 @@
+"0","data <- data %>%"
+"0","  distinct(person_id, .keep_all = TRUE)  # Keeps only the first occurrence of each person_id"

@@ -1,0 +1,5 @@
+"0","data$perc_muchtime_sqrt <- sqrt(data$perc_muchtime)"
+"0","data$perc_muchtime_cubert <- data$perc_muchtime^(1/3)"
+"0","data$perc_muchtime_log <- log(data$perc_muchtime)"
+"0","data$perc_muchtime_ihs <- asinh(data$perc_muchtime)"
+"0","lambda <- boxcox(lm(perc_muchtime +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))"

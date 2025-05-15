@@ -1,0 +1,5 @@
+"0","data <- data %>%"
+"0","  mutate(item_response = na_if(item_response, 99))"
+"0",""
+"0","data <- data %>%"
+"0","  mutate(item_score = na_if(item_score, 99))"

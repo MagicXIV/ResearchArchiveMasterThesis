@@ -1,0 +1,20 @@
+"0","packages <- c(""lavaan"", ""lavaanPlot"", ""tidyr"")"
+"0","installed_packages <- packages %in% rownames(installed.packages())"
+"0","if (any(installed_packages == FALSE)) {"
+"0","  install.packages(packages[!installed_packages])"
+"0","}"
+"0",""
+"0","invisible(lapply(packages, library, character.only = TRUE))"
+"2","Warning:"
+"2"," package ‘lavaan’ was built under R version 4.4.2
+"
+"2","This is lavaan 0.6-19
+lavaan is FREE software! Please report any bugs.
+"
+"2","Warning:"
+"2"," package ‘lavaanPlot’ was built under R version 4.4.2
+"
+"2","Registered S3 method overwritten by 'htmlwidgets':
+  method           from         
+  print.htmlwidget tools:rstudio
+"

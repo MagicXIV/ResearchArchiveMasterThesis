@@ -1,0 +1,389 @@
+lavaan 0.6-19 ended normally after 217 iterations
+
+  Estimator                                         ML
+  Optimization method                           NLMINB
+  Number of model parameters                       177
+
+  Number of observations per group:               Used       Total
+    PISANL                                         545         606
+    PISAOthers                                   16443       17036
+    TIMSSNL                                       1626        1648
+    TIMSSOthers                                  26942       27860
+
+Model Test User Model:
+                                              Standard      Scaled
+  Test Statistic                              6286.834    6444.795
+  Degrees of freedom                               211         211
+  P-value (Chi-square)                           0.000       0.000
+  Scaling correction factor                                  0.975
+    Yuan-Bentler correction (Mplus variant)                       
+  Test statistic for each group:
+    PISANL                                      84.760      84.760
+    PISAOthers                                1223.720    1223.720
+    TIMSSNL                                   1118.705    1118.705
+    TIMSSOthers                               4017.610    4017.610
+
+Model Test Baseline Model:
+
+  Test statistic                            458210.153  446001.966
+  Degrees of freedom                               288         288
+  P-value                                        0.000       0.000
+  Scaling correction factor                                  1.027
+
+User Model versus Baseline Model:
+
+  Comparative Fit Index (CFI)                    0.987       0.986
+  Tucker-Lewis Index (TLI)                       0.982       0.981
+                                                                  
+  Robust Comparative Fit Index (CFI)                         0.987
+  Robust Tucker-Lewis Index (TLI)                            0.982
+
+Loglikelihood and Information Criteria:
+
+  Loglikelihood user model (H0)            -392076.576 -392076.576
+  Scaling correction factor                                  1.338
+      for the MLR correction                                      
+  Loglikelihood unrestricted model (H1)    -388933.159 -388933.159
+  Scaling correction factor                                  1.141
+      for the MLR correction                                      
+                                                                  
+  Akaike (AIC)                              784507.151  784507.151
+  Bayesian (BIC)                            786051.777  786051.777
+  Sample-size adjusted Bayesian (SABIC)     785489.269  785489.269
+
+Root Mean Square Error of Approximation:
+
+  RMSEA                                          0.050       0.051
+  90 Percent confidence interval - lower         0.049       0.050
+  90 Percent confidence interval - upper         0.051       0.052
+  P-value H_0: RMSEA <= 0.050                    0.330       0.078
+  P-value H_0: RMSEA >= 0.080                    0.000       0.000
+                                                                  
+  Robust RMSEA                                               0.050
+  90 Percent confidence interval - lower                     0.049
+  90 Percent confidence interval - upper                     0.051
+  P-value H_0: Robust RMSEA <= 0.050                         0.316
+  P-value H_0: Robust RMSEA >= 0.080                         0.000
+
+Standardized Root Mean Square Residual:
+
+  SRMR                                           0.068       0.068
+
+Parameter Estimates:
+
+  Standard errors                             Sandwich
+  Information bread                           Observed
+  Observed information based on                Hessian
+
+
+Group 1 [PISANL]:
+
+Latent Variables:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+  Motivation =~                                                         
+    mean_respns_tm    1.000                               0.769    0.775
+    effort           -0.291    0.084   -3.469    0.001   -0.224   -0.224
+    nrmlsdprc_lttl   -1.047    0.071  -14.804    0.000   -0.805   -0.817
+    nrmlsdprc_mcht    0.439    0.042   10.572    0.000    0.338    0.337
+    many_little_tm   -0.343    0.026  -12.996    0.000   -0.263   -0.692
+    many_much_time    0.043    0.010    4.348    0.000    0.033    0.160
+    gender           -0.098    0.042   -2.326    0.020   -0.075   -0.150
+    Native           -0.023    0.012   -1.854    0.064   -0.018   -0.132
+  Ability =~                                                            
+    PV1               1.000                               0.931    0.952
+    PV2               1.004    0.026   39.118    0.000    0.934    0.950
+    PV3               0.975    0.020   49.956    0.000    0.908    0.950
+    PV4               0.984    0.021   47.579    0.000    0.916    0.951
+    PV5               1.009    0.022   45.879    0.000    0.939    0.953
+    gender            0.069    0.033    2.113    0.035    0.064    0.129
+    Native            0.032    0.011    2.900    0.004    0.030    0.223
+
+Regressions:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+  Ability ~                                                             
+    Motivation        0.768    0.049   15.637    0.000    0.634    0.634
+
+Covariances:
+                               Estimate  Std.Err  z-value  P(>|z|)
+ .mean_response_time ~~                                           
+   .nrmlsdprc_mcht                0.467    0.041   11.499    0.000
+ .normalisedperc_muchtime ~~                                      
+   .many_much_time                0.098    0.018    5.317    0.000
+ .mean_response_time ~~                                           
+   .many_much_time                0.054    0.011    4.699    0.000
+ .normalisedperc_littletime ~~                                    
+   .many_little_tm                0.098    0.015    6.600    0.000
+   Std.lv  Std.all
+                  
+    0.467    0.788
+                  
+    0.098    0.512
+                  
+    0.054    0.423
+                  
+    0.098    0.626
+
+Intercepts:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+   .mean_respns_tm    0.032    0.043    0.741    0.459    0.032    0.032
+   .effort           -0.007    0.043   -0.154    0.878   -0.007   -0.007
+   .nrmlsdprc_lttl   -0.023    0.042   -0.536    0.592   -0.023   -0.023
+   .nrmlsdprc_mcht    0.022    0.043    0.503    0.615    0.022    0.022
+   .many_little_tm    0.176    0.016   10.795    0.000    0.176    0.462
+   .many_much_time    0.044    0.009    5.011    0.000    0.044    0.215
+   .gender            1.501    0.021   70.079    0.000    1.501    3.002
+   .Native            1.982    0.006  344.703    0.000    1.982   14.765
+   .PV1               0.437    0.042   10.435    0.000    0.437    0.447
+   .PV2               0.474    0.042   11.252    0.000    0.474    0.482
+   .PV3               0.441    0.041   10.772    0.000    0.441    0.461
+   .PV4               0.451    0.041   10.925    0.000    0.451    0.468
+   .PV5               0.459    0.042   10.882    0.000    0.459    0.466
+
+Variances:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+   .mean_respns_tm    0.394    0.043    9.126    0.000    0.394    0.400
+   .effort            0.943    0.086   10.924    0.000    0.943    0.950
+   .nrmlsdprc_lttl    0.324    0.039    8.269    0.000    0.324    0.333
+   .nrmlsdprc_mcht    0.893    0.052   17.101    0.000    0.893    0.887
+   .many_little_tm    0.076    0.008    9.884    0.000    0.076    0.522
+   .many_much_time    0.041    0.008    5.396    0.000    0.041    0.975
+   .gender            0.246    0.003   81.678    0.000    0.246    0.985
+   .Native            0.017    0.005    3.353    0.001    0.017    0.970
+   .PV1               0.090    0.007   12.873    0.000    0.090    0.094
+   .PV2               0.094    0.008   11.254    0.000    0.094    0.097
+   .PV3               0.090    0.007   13.419    0.000    0.090    0.098
+   .PV4               0.090    0.007   13.165    0.000    0.090    0.097
+   .PV5               0.089    0.007   13.345    0.000    0.089    0.092
+    Motivation        0.591    0.061    9.719    0.000    1.000    1.000
+   .Ability           0.518    0.042   12.351    0.000    0.598    0.598
+
+
+Group 2 [PISAOthers]:
+
+Latent Variables:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+  Motivation =~                                                         
+    mean_respns_tm    1.000                               0.546    0.550
+    nrmlsdprc_lttl   -1.761    0.025  -71.424    0.000   -0.961   -0.977
+    nrmlsdprc_mcht    0.456    0.009   51.685    0.000    0.249    0.249
+    many_little_tm   -0.595    0.009  -67.488    0.000   -0.325   -0.834
+    many_much_time    0.078    0.004   20.749    0.000    0.043    0.122
+    gender           -0.114    0.008  -14.463    0.000   -0.062   -0.125
+    Native           -0.008    0.004   -1.918    0.055   -0.004   -0.018
+  Ability =~                                                            
+    PV1               1.000                               0.939    0.944
+    PV2               1.001    0.004  240.897    0.000    0.940    0.945
+    PV3               0.996    0.004  238.892    0.000    0.936    0.947
+    PV4               0.999    0.004  243.337    0.000    0.938    0.945
+    PV5               0.998    0.004  241.564    0.000    0.937    0.945
+    gender            0.065    0.005   14.397    0.000    0.061    0.123
+    Native            0.039    0.002   15.570    0.000    0.036    0.151
+
+Regressions:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+  Ability ~                                                             
+    Motivation        0.698    0.013   52.006    0.000    0.406    0.406
+
+Covariances:
+                             Estimate  Std.Err  z-value  P(>|z|)   Std.lv
+ .mean_response_time ~~                                                  
+   .many_much_time              0.165    0.003   52.705    0.000    0.165
+   .nrmlsdprc_mcht              0.664    0.007   94.911    0.000    0.664
+ .normalisedperc_muchtime ~~                                             
+   .many_much_time              0.217    0.004   59.653    0.000    0.217
+  Std.all
+         
+    0.574
+    0.827
+         
+    0.644
+
+Intercepts:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+   .mean_respns_tm    0.013    0.008    1.661    0.097    0.013    0.013
+   .nrmlsdprc_lttl   -0.017    0.008   -2.227    0.026   -0.017   -0.017
+   .nrmlsdprc_mcht    0.008    0.008    0.998    0.318    0.008    0.008
+   .many_little_tm    0.186    0.003   61.378    0.000    0.186    0.479
+   .many_much_time    0.144    0.003   52.506    0.000    0.144    0.409
+   .gender            1.504    0.004  385.837    0.000    1.504    3.009
+   .Native            1.939    0.002 1039.422    0.000    1.939    8.106
+   .PV1              -0.002    0.008   -0.288    0.773   -0.002   -0.002
+   .PV2              -0.002    0.008   -0.277    0.782   -0.002   -0.002
+   .PV3              -0.004    0.008   -0.559    0.576   -0.004   -0.004
+   .PV4              -0.006    0.008   -0.773    0.440   -0.006   -0.006
+   .PV5              -0.007    0.008   -0.848    0.397   -0.007   -0.007
+
+Variances:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+   .mean_respns_tm    0.686    0.008   82.095    0.000    0.686    0.697
+   .nrmlsdprc_lttl    0.044    0.005    8.276    0.000    0.044    0.046
+   .nrmlsdprc_mcht    0.939    0.007  133.297    0.000    0.939    0.938
+   .many_little_tm    0.046    0.001   59.388    0.000    0.046    0.304
+   .many_much_time    0.121    0.002   63.792    0.000    0.121    0.985
+   .gender            0.245    0.001  460.662    0.000    0.245    0.982
+   .Native            0.056    0.002   35.555    0.000    0.056    0.979
+   .PV1               0.107    0.002   70.068    0.000    0.107    0.108
+   .PV2               0.107    0.002   70.528    0.000    0.107    0.108
+   .PV3               0.102    0.001   68.691    0.000    0.102    0.104
+   .PV4               0.105    0.002   68.474    0.000    0.105    0.107
+   .PV5               0.106    0.002   69.719    0.000    0.106    0.107
+    Motivation        0.298    0.009   31.652    0.000    1.000    1.000
+   .Ability           0.737    0.009   79.366    0.000    0.836    0.836
+
+
+Group 3 [TIMSSNL]:
+
+Latent Variables:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+  Motivation =~                                                         
+    mean_respns_tm    1.000                               0.892    0.890
+    nrmlsdprc_mss_   -0.061    0.128   -0.473    0.636   -0.054   -0.054
+    nrmlsdprc_lttl   -0.528    0.143   -3.702    0.000   -0.471   -0.472
+    nrmlsdprc_mcht    0.874    0.054   16.298    0.000    0.779    0.779
+    many_little_tm   -0.184    0.055   -3.337    0.001   -0.164   -0.397
+    many_much_time    0.242    0.015   15.911    0.000    0.216    0.622
+    gender           -0.088    0.016   -5.421    0.000   -0.078   -0.157
+    Native           -0.001    0.007   -0.119    0.905   -0.001   -0.003
+  Ability =~                                                            
+    PV1               1.000                               0.768    0.925
+    PV2               0.981    0.016   62.360    0.000    0.754    0.926
+    PV3               0.973    0.016   58.961    0.000    0.747    0.924
+    PV4               1.008    0.015   65.675    0.000    0.775    0.930
+    PV5               1.007    0.016   61.125    0.000    0.774    0.926
+    gender            0.055    0.017    3.281    0.001    0.042    0.085
+    Native            0.047    0.010    4.825    0.000    0.036    0.142
+
+Regressions:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+  Ability ~                                                             
+    Motivation        0.101    0.051    1.977    0.048    0.117    0.117
+
+Covariances:
+                             Estimate  Std.Err  z-value  P(>|z|)   Std.lv
+ .mean_response_time ~~                                                  
+   .nrmlsdprc_mcht              0.134    0.100    1.340    0.180    0.134
+   .nrmlsdprc_mss_              0.149    0.071    2.096    0.036    0.149
+ .normalisedperc_muchtime ~~                                             
+   .nrmlsdprc_mss_              0.118    0.074    1.592    0.111    0.118
+ .mean_response_time ~~                                                  
+   .nrmlsdprc_lttl             -0.088    0.049   -1.784    0.074   -0.088
+  Std.all
+         
+    0.469
+    0.328
+         
+    0.188
+         
+   -0.219
+
+Intercepts:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+   .mean_respns_tm   -0.002    0.025   -0.090    0.928   -0.002   -0.002
+   .nrmlsdprc_mss_    0.001    0.025    0.044    0.965    0.001    0.001
+   .nrmlsdprc_lttl    0.000    0.025    0.008    0.994    0.000    0.000
+   .nrmlsdprc_mcht   -0.001    0.025   -0.033    0.974   -0.001   -0.001
+   .many_little_tm    0.219    0.010   21.349    0.000    0.219    0.529
+   .many_much_time    0.140    0.009   16.284    0.000    0.140    0.404
+   .gender            2.506    0.012  202.077    0.000    2.506    5.011
+   .Native            1.931    0.006  307.481    0.000    1.931    7.625
+   .PV1               0.179    0.021    8.681    0.000    0.179    0.215
+   .PV2               0.181    0.020    8.969    0.000    0.181    0.222
+   .PV3               0.181    0.020    9.015    0.000    0.181    0.224
+   .PV4               0.193    0.021    9.333    0.000    0.193    0.231
+   .PV5               0.175    0.021    8.469    0.000    0.175    0.210
+
+Variances:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+   .mean_respns_tm    0.208    0.074    2.826    0.005    0.208    0.207
+   .nrmlsdprc_mss_    0.993    0.043   22.858    0.000    0.993    0.997
+   .nrmlsdprc_lttl    0.774    0.096    8.024    0.000    0.774    0.777
+   .nrmlsdprc_mcht    0.393    0.121    3.256    0.001    0.393    0.393
+   .many_little_tm    0.144    0.013   11.150    0.000    0.144    0.843
+   .many_much_time    0.074    0.006   12.033    0.000    0.074    0.614
+   .gender            0.243    0.002  109.744    0.000    0.243    0.971
+   .Native            0.063    0.005   12.027    0.000    0.063    0.980
+   .PV1               0.100    0.004   22.884    0.000    0.100    0.144
+   .PV2               0.094    0.004   23.233    0.000    0.094    0.142
+   .PV3               0.096    0.004   21.765    0.000    0.096    0.146
+   .PV4               0.093    0.004   22.829    0.000    0.093    0.134
+   .PV5               0.099    0.005   21.257    0.000    0.099    0.142
+    Motivation        0.795    0.085    9.397    0.000    1.000    1.000
+   .Ability           0.582    0.023   25.203    0.000    0.986    0.986
+
+
+Group 4 [TIMSSOthers]:
+
+Latent Variables:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+  Motivation =~                                                         
+    mean_respns_tm    1.000                               0.465    0.467
+    nrmlsdprc_mss_   -0.487    0.022  -22.445    0.000   -0.227   -0.228
+    nrmlsdprc_lttl   -1.694    0.024  -69.702    0.000   -0.787   -0.788
+    nrmlsdprc_mcht    0.815    0.009   87.612    0.000    0.379    0.378
+    many_little_tm   -0.633    0.012  -51.917    0.000   -0.294   -0.783
+    gender           -0.074    0.007   -9.982    0.000   -0.034   -0.069
+    Native           -0.003    0.004   -0.643    0.520   -0.001   -0.005
+  Ability =~                                                            
+    PV1               1.000                               0.944    0.944
+    PV2               1.004    0.003  289.814    0.000    0.948    0.944
+    PV3               0.998    0.003  291.883    0.000    0.943    0.944
+    PV4               1.007    0.003  290.636    0.000    0.951    0.945
+    PV5               1.009    0.003  290.238    0.000    0.953    0.945
+    gender            0.048    0.003   14.671    0.000    0.045    0.091
+    Native            0.029    0.002   14.876    0.000    0.027    0.104
+
+Regressions:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+  Ability ~                                                             
+    Motivation        0.310    0.017   18.103    0.000    0.152    0.152
+
+Covariances:
+                             Estimate  Std.Err  z-value  P(>|z|)   Std.lv
+ .mean_response_time ~~                                                  
+   .nrmlsdprc_mcht              0.648    0.006  105.492    0.000    0.648
+   .nrmlsdprc_mss_              0.199    0.006   30.987    0.000    0.199
+ .normalisedperc_muchtime ~~                                             
+   .nrmlsdprc_mss_              0.179    0.006   29.291    0.000    0.179
+ .mean_response_time ~~                                                  
+   .nrmlsdprc_lttl             -0.084    0.003  -24.682    0.000   -0.084
+  Std.all
+         
+    0.795
+    0.233
+         
+    0.199
+         
+   -0.156
+
+Intercepts:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+   .mean_respns_tm    0.004    0.006    0.584    0.559    0.004    0.004
+   .nrmlsdprc_mss_   -0.007    0.006   -1.149    0.251   -0.007   -0.007
+   .nrmlsdprc_lttl   -0.003    0.006   -0.552    0.581   -0.003   -0.003
+   .nrmlsdprc_mcht    0.003    0.006    0.493    0.622    0.003    0.003
+   .many_little_tm    0.170    0.002   74.381    0.000    0.170    0.453
+   .gender            2.513    0.003  825.189    0.000    2.513    5.027
+   .Native            1.927    0.002 1216.438    0.000    1.927    7.411
+   .PV1               0.010    0.006    1.642    0.101    0.010    0.010
+   .PV2               0.011    0.006    1.784    0.074    0.011    0.011
+   .PV3               0.015    0.006    2.457    0.014    0.015    0.015
+   .PV4               0.008    0.006    1.231    0.218    0.008    0.008
+   .PV5               0.003    0.006    0.479    0.632    0.003    0.003
+
+Variances:
+                   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+   .mean_respns_tm    0.775    0.007  108.284    0.000    0.775    0.782
+   .nrmlsdprc_mss_    0.939    0.008  117.068    0.000    0.939    0.948
+   .nrmlsdprc_lttl    0.378    0.008   44.913    0.000    0.378    0.379
+   .nrmlsdprc_mcht    0.857    0.007  119.155    0.000    0.857    0.857
+   .many_little_tm    0.055    0.001   47.337    0.000    0.055    0.387
+   .gender            0.247    0.000  711.433    0.000    0.247    0.989
+   .Native            0.067    0.001   50.379    0.000    0.067    0.989
+   .PV1               0.108    0.001   86.367    0.000    0.108    0.108
+   .PV2               0.110    0.001   86.451    0.000    0.110    0.109
+   .PV3               0.108    0.001   88.766    0.000    0.108    0.109
+   .PV4               0.109    0.001   87.520    0.000    0.109    0.107
+   .PV5               0.108    0.001   86.146    0.000    0.108    0.106
+    Motivation        0.216    0.007   31.843    0.000    1.000    1.000
+   .Ability           0.871    0.008  102.504    0.000    0.977    0.977
+
