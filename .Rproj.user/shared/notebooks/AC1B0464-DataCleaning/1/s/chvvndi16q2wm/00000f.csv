@@ -1,0 +1,2 @@
+"0","#save the data"
+"0","save(traindata, testdata, file = ""../../Data/TestTrainData.RData"")"

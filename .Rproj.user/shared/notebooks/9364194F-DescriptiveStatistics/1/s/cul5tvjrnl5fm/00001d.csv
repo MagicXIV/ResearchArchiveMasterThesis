@@ -1,0 +1,3 @@
+"0","# Save the plot for LaTeX inclusion"
+"0","ggsave(""gender_barplot.png"", GenderPlot, width = 8, height = 6, dpi = 300, "
+"0","       path = ""../Output/"")"

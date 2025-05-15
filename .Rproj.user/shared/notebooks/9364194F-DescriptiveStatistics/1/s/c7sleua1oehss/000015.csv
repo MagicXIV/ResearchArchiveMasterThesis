@@ -1,0 +1,2 @@
+"0","# Save the plot for LaTeX inclusion"
+"0","ggsave(""FastStudents_barplot.png"", FastStudentsPlot, width = 8, height = 6, dpi = 300, path = ""../Output/"")"

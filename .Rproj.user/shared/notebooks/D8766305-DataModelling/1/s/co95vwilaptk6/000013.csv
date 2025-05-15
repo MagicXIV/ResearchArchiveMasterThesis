@@ -1,0 +1,7 @@
+"0",""
+"0","#save the summary output to the Results folder"
+"0","# Redirect output to a file"
+"0","sink(file = ""../Results/TestModelSummary.txt"")"
+"0","summary(fit, fit.measures = TRUE, standardized = TRUE)"
+"0","sink()  # Stop redirecting output"
+"0",""

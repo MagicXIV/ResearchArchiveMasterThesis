@@ -1,0 +1,437 @@
+---
+title: "PISA Data Cleaning"
+author: "Jasmijn Bazen"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r libraries, include = FALSE}
+packages <- c("dplyr", "haven", "tidyr", "ggplot2")
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+invisible(lapply(packages, library, character.only = TRUE))
+
+# library(tidyverse)
+# library(haven) #for the chr to factor 
+# library(dplyr)
+# library(tidyr)
+```
+
+# Getting the dataset ready 
+```{r Load Data, include=FALSE}
+rm(list = ls())
+data <- readRDS("../Data/pisa18_m.RDS")
+data <- data.frame(data)
+```
+
+
+### Label countries differently
+
+Austria	AUT	40
+Denmark	DNK	208
+England	ENG	926
+Finland	FIN	246
+France	FRA	250
+Germany	DEU	276
+Italy	  ITA	380
+Netherlands	NLD	528
+Portugal	PRT	620
+Spain	ESP	724
+Sweden	SWE	752
+
+BEL  Belgium
+GRC  Greece
+IRL  Ireland
+GBR  United Kingdom
+```{r}
+data$country <- case_when(
+  data$CNT == "AUT"  ~ "Austria",
+  data$CNT == "DNK" ~ "Denmark",
+  data$CNT == "ENG" ~ "England",
+  data$CNT == "FIN" ~ "Finland",
+  data$CNT == "FRA" ~ "France",
+  data$CNT == "DEU" ~ "Germany",
+  data$CNT == "ITA" ~ "Italy",
+  data$CNT == "NLD" ~ "Netherlands",
+  data$CNT == "PRT" ~ "Portugal",
+  data$CNT == "ESP" ~ "Spain",
+  data$CNT == "SWE" ~ "Sweden",
+  data$CNT == "BEL" ~ "Belgium",
+  data$CNT == "GRC" ~ "Greece",
+  data$CNT == "IRL" ~ "Ireland",
+  data$CNT == "GBR" ~ "United Kingdom"
+)
+
+
+#filter only rows where country is not NA
+data <- data %>% 
+  filter(!is.na(country))
+```
+
+
+### Change response time to seconds, instead of milliseconds
+```{r response time to seconds}
+data <- data %>%
+  mutate(response_time = (data$response_time/1000))
+```
+
+### Make a unique student identifier
+```{r unique student identifier}
+data <- data %>% 
+  mutate(person_id = paste(CNTSCHID, CNTSTUID, sep = "_"))
+```
+
+### Make missing_counts and total_items variables
+```{r add missing counts to data}
+#see which responses there are
+unique(data$response) # -> "No Response" & "Not Reached"
+
+#make missing counts per person based on these 
+missing_counts <- data %>%
+  group_by(person_id) %>%
+  summarise(TotalMissingItems = sum(response %in% c("No Response", "Not Reached")), .groups = "drop")
+
+#add missing counts to data 
+data <- data %>%
+  left_join(missing_counts, by = "person_id") 
+
+#add how many questions they had to answer
+total_items <- data %>%
+  group_by(person_id) %>%
+  summarise(
+    total_items = n())
+
+data <- data %>%
+  left_join(total_items, by = "person_id")
+
+rm(total_items)
+```
+
+
+```{r}
+data <- data %>%
+  mutate(item_type_open = case_when(
+    item_type %in% c("Open Response - Computer Scored", "Open Response - Human Coded") ~ "Open Response",
+    TRUE ~ item_type  # Retain original value for other cases
+  ))
+
+data <- data %>%
+  mutate(item_type_open = case_when(
+    item_type_open %in% c("Simple Multiple Choice - Computer Scored") ~ "Simple Multiple Choice", 
+    TRUE ~ item_type_open
+  ))
+
+data <- data %>%
+  mutate(item_type_open = case_when(
+    item_type_open %in% c("Complex Multiple Choice - Computer Scored") ~ "Complex Multiple Choice", 
+    TRUE ~ item_type_open
+  ))
+```
+
+Total scores
+```{r}
+#make total scores
+total_scores <- data %>% 
+  group_by(person_id) %>% 
+  summarise(total_score = sum(item_score, na.rm=TRUE))
+
+#add to dataset
+data <- data %>%
+  left_join(total_scores, by = "person_id")
+
+rm(total_scores)
+```
+
+# Change PVs
+```{r}
+# only keep first 5 PVs
+data <- data %>%
+  dplyr::select(-PV6MATH, -PV7MATH, -PV8MATH, -PV9MATH, -PV10MATH)
+
+#scale the PVs all together, so that their collective mean is 0 and their collective sd is 1 (previously mean 499, sd 87.8, code to calculate in comment below)
+# combined_values <- as.vector(as.matrix(data[, c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH")]))
+# mean(combined_values)  
+# sd(combined_values)
+data[, c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH")] <- 
+  matrix(scale(as.vector(as.matrix(data[, c("PV1MATH", "PV2MATH", "PV3MATH", "PV4MATH", "PV5MATH")]))),
+         nrow = nrow(data))
+
+#rename them to PV1 : PV5
+data <- data %>%
+  rename(PV1 = PV1MATH, PV2 = PV2MATH, PV3 = PV3MATH, PV4 = PV4MATH, PV5 = PV5MATH)
+```
+
+### Response Times
+- The (total) response times will maybe also need to be standardised; now: per country like PVs
+- Dummy variables will be created for the lowest 10% of response times on questions, and the highest 10%
+```{r}
+summary(data$response_time)
+# 5min = 300 seconds, 5095 seconds = 1.4 hours -> NA everything more than 20 minutes = 1200 seconds
+nrow(data %>% filter(response_time >= 1200))
+data <- data %>% filter(response_time < 1200)
+
+threshold <- quantile(data$response_time, probs = 0.10, na.rm = TRUE)
+threshold2 <- quantile(data$response_time, probs = 0.90, na.rm = TRUE)
+ggplot(data, aes(x = response_time)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "blue") +
+  geom_vline(xintercept=threshold, color="red") +
+  geom_vline(xintercept=threshold2, color="red") +
+  labs(title = "Response Time Distribution per Person", x = "Response Times", y = "Frequency")
+
+
+#make dummies for if a question was answered with too little (<threshold) or too much (>threshold2) time
+data <- data %>% 
+  mutate(
+    little_time = ifelse(response_time < threshold, 1, 0),
+    much_time = ifelse(response_time > threshold2, 1, 0),
+    )
+
+#now aggregate them on person level
+total_time_scores <- data %>% 
+  group_by(person_id) %>% 
+  summarise(total_little_time = sum(little_time), 
+            total_much_time = sum(much_time))
+data <- data %>%
+  left_join(total_time_scores, by = "person_id")
+rm(total_time_scores)
+
+
+#make a variable Total Response Time
+data <- data %>% 
+  group_by(person_id) %>% 
+  mutate(total_response_time = sum(response_time, na.rm = TRUE)) %>% 
+  ungroup()
+hist(data$total_response_time, main = "Total Response Times", xlab = "Total Response Time")
+#Looks approximately normal, let's keep it like this
+
+
+
+
+#Now, lets make this look like more of a normal distribution by doing a transformation, but which?
+data$response_time_sqrt <- sqrt(data$response_time)
+data$response_time_cubert <- data$response_time^(1/3)
+data$response_time_log <- log(data$response_time)
+library(MASS)
+boxcox_fit <- boxcox(lm(response_time ~ 1, data = data))
+best_lambda <- boxcox_fit$x[which.max(boxcox_fit$y)]
+data$response_time_boxcox <- (data$response_time^best_lambda - 1) / best_lambda
+par(mfrow = c(1, 1))
+hist(data$response_time_sqrt, main = "Square Root")
+hist(data$response_time_cubert, main = "Cube Root")
+hist(data$response_time_log, main = "Log")
+hist(data$response_time_boxcox, main = "Box-Cox")
+data <- data %>% dplyr::select(-response_time_sqrt, -response_time_cubert, -response_time_log, -response_time_boxcox)
+#the box-cox transformation looks best (alongside of the cube root, however, in the TIMSS dataset, the box-cox transformation was better, so we will use that one here as well)
+
+data$response_time <- (data$response_time^best_lambda - 1) / best_lambda
+hist(data$response_time, main = "Response Times", xlab = "Response Time")
+
+```
+
+
+### SES / ESCS (economic, social and cultural status)
+High -> high shooling of parents, high income, etc
+```{r}
+str(data$ESCS)
+summary(data$ESCS)
+mean(data$ESCS, na.rm = TRUE)
+sd(data$ESCS, na.rm = TRUE)
+#rename ESCS to SES
+data <- data %>%
+  rename(SES = ESCS)
+```
+
+
+### Total missing items
+```{r}
+str(data$TotalMissingItems)
+summary(data$TotalMissingItems)
+
+#remove people with more than 80% missing items
+(data %>% filter(TotalMissingItems >= 0.8 * total_items)) %>% distinct(person_id) %>% nrow()
+data <- data %>% filter(TotalMissingItems < 0.8 * total_items)
+
+
+hist(data$TotalMissingItems, main = "Total Missing Items", xlab = "Total Missing Items")
+#There's a lot of people with 0 missing items, and then a few with a lot of missing items. Let's see if we can make this more normal
+data$TotalMissingItems_sqrt <- sqrt(data$TotalMissingItems)
+data$TotalMissingItems_cubert <- data$TotalMissingItems^(1/3)
+data$TotalMissingItems_log <- log(data$TotalMissingItems)
+data$TotalMissingItems_ihs <- asinh(data$TotalMissingItems)
+library(MASS)
+lambda <- boxcox(lm(TotalMissingItems +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$TotalMissingItems_boxcox <- (data$TotalMissingItems^best_lambda - 1) / best_lambda
+data$TotalMissingItems_rank <- qnorm(rank(data$TotalMissingItems, ties.method = "average") / (nrow(data) + 1))
+
+
+
+par(mfrow = c(3, 2))
+hist(data$TotalMissingItems_sqrt, main = "Square Root")
+hist(data$TotalMissingItems_cubert, main = "Cube Root")
+hist(data$TotalMissingItems_log, main = "Log")
+hist(data$TotalMissingItems_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$TotalMissingItems_boxcox, main = "Box-Cox")
+hist(data$TotalMissingItems_rank, main = "Rank-Based Normalization")
+
+data <- data %>% dplyr::select(-TotalMissingItems_sqrt, -TotalMissingItems_cubert, -TotalMissingItems_log, -TotalMissingItems_ihs, -TotalMissingItems_boxcox, -TotalMissingItems_rank)
+#None of them seem to work well, but the Inverse Hyperbolic Sine is closest to the Rank-Based Normalization one, so this one will be used
+data$normalisedTotalMissingItems <- asinh(data$TotalMissingItems)
+
+
+# data <- data %>%
+#   mutate(
+#     median_value = quantile(TotalMissingItems[TotalMissingItems > 0], probs = 0.5, na.rm = TRUE),  # Compute median excluding zeros
+#     missing_category = case_when(
+#       TotalMissingItems == 0 ~ 0,  # Keep zeros as 0
+#       TotalMissingItems > median_value ~ 1,  # Top 50% -> 1
+#       TotalMissingItems <= median_value ~ -1  # Bottom 50% -> -1
+#     )
+#   )
+# 
+# summary(data$missing_category)
+# 
+# 
+
+
+#duplicate the TotalMissingItems with a new name
+data <- data %>%
+  mutate(
+    TotalMissingItems2 = TotalMissingItems
+  )
+
+#change 0 to NA, and then the bottom and top 50% to low and high (making them 2 separate dummy variables)
+data <- data %>%
+  mutate(
+    TotalMissingItems2 = ifelse(TotalMissingItems2 == 0, NA, TotalMissingItems2),
+    little_missing_items = ifelse(TotalMissingItems2 <= quantile(TotalMissingItems2, probs = 0.5, na.rm = TRUE), 1, 0),
+    much_missing_items = ifelse(TotalMissingItems2 > quantile(TotalMissingItems2, probs = 0.5, na.rm = TRUE), 1, 0)
+  )
+summary(data$little_missing_items)
+summary(data$much_missing_items)
+
+#change NAs to 0s
+data <- data %>%
+  mutate(
+    little_missing_items = ifelse(is.na(little_missing_items), 0, little_missing_items),
+    much_missing_items = ifelse(is.na(much_missing_items), 0, much_missing_items)
+  )
+
+```
+
+### Total 10%s and 90%s
+```{r}
+str(data$total_little_time)
+summary(data$total_little_time)
+str(data$total_much_time)
+summary(data$total_much_time)
+
+hist(data$total_little_time, main = "Total Little Time", xlab = "Total Little Time")
+hist(data$total_much_time, main = "Total Much Time", xlab = "Total Much Time") #this histogram acts weird: 
+table(data$total_much_time) #it looks normal here?
+#There's a lot of people with 0, and then a few with a lot. Let's see if we can make this more normal
+
+data$total_little_time_sqrt <- sqrt(data$total_little_time)
+data$total_little_time_cubert <- data$total_little_time^(1/3)
+data$total_little_time_log <- log(data$total_little_time)
+data$total_little_time_ihs <- asinh(data$total_little_time)
+lambda <- boxcox(lm(total_little_time +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$total_little_time_boxcox <- (data$total_little_time^best_lambda - 1) / best_lambda
+data$total_little_time_rank <- qnorm(rank(data$total_little_time, ties.method = "average") / (nrow(data) + 1))
+
+par(mfrow = c(3, 2))
+hist(data$total_little_time_sqrt, main = "Square Root", xlab = "Total Little Time")
+hist(data$total_little_time_cubert, main = "Cube Root", xlab = "Total Little Time")
+hist(data$total_little_time_log, main = "Log", xlab = "Total Little Time")
+hist(data$total_little_time_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$total_little_time_boxcox, main = "Box-Cox")
+hist(data$total_little_time_rank, main = "Rank-Based Normalization")
+data <- data %>% dplyr::select(-total_little_time_sqrt, -total_little_time_cubert, -total_little_time_log, -total_little_time_ihs, -total_little_time_boxcox, -total_little_time_rank)
+#None of them seem to work well, but again the Inverse Hyperbolic Sine seems to work best
+data$normalised_total_little_time <- asinh(data$total_little_time)
+
+data$total_much_time_sqrt <- sqrt(data$total_much_time)
+data$total_much_time_cubert <- data$total_much_time^(1/3)
+data$total_much_time_log <- log(data$total_much_time)
+data$total_much_time_ihs <- asinh(data$total_much_time)
+lambda <- boxcox(lm(total_much_time +1 ~ 1, data = data), lambda = seq(-2, 2, 0.1))
+best_lambda <- lambda$x[which.max(lambda$y)]  # Get optimal lambda
+data$total_much_time_boxcox <- (data$total_much_time^best_lambda - 1) / best_lambda
+data$total_much_time_rank <- qnorm(rank(data$total_much_time, ties.method = "average") / (nrow(data) + 1))
+par(mfrow = c(3, 2))
+hist(data$total_much_time_sqrt, main = "Square Root", xlab = "Total Much Time")
+hist(data$total_much_time_cubert, main = "Cube Root", xlab = "Total Much Time")
+hist(data$total_much_time_log, main = "Log", xlab = "Total Much Time")
+hist(data$total_much_time_ihs, main = "Inverse Hyperbolic Sine")
+hist(data$total_much_time_boxcox, main = "Box-Cox")
+hist(data$total_much_time_rank, main = "Rank-Based Normalization")
+data <- data %>% dplyr::select(-total_much_time_sqrt, -total_much_time_cubert, -total_much_time_log, -total_much_time_ihs, -total_much_time_boxcox, -total_much_time_rank)
+#None of them seem to work well, but i'll take the Inverse Hyperbolic Sine again
+data$normalised_total_much_time <- asinh(data$total_much_time)
+
+
+#duplicate the total_little_time and total_much_time variables with new names
+data <- data %>%
+  mutate(
+    total_little_time2 = total_little_time,
+    total_much_time2 = total_much_time
+  )
+
+#change 0 to NA, and then the bottom and top 50% to low and high (making them 2 separate dummy variables)
+data <- data %>%
+  mutate(
+    total_little_time2 = ifelse(total_little_time2 == 0, NA, total_little_time2),
+    total_much_time2 = ifelse(total_much_time2 == 0, NA, total_much_time2),
+    littlelittle_time = ifelse(total_little_time2 <= quantile(total_little_time2, probs = 0.5, na.rm = TRUE), 1, 0),
+    manylittle_time = ifelse(total_little_time2 > quantile(total_much_time2, probs = 0.5, na.rm = TRUE), 1, 0),
+    littlemuch_time = ifelse(total_much_time2 <= quantile(total_little_time2, probs = 0.5, na.rm = TRUE), 1, 0),
+    manymuch_time = ifelse(total_much_time2 > quantile(total_much_time2, probs = 0.5, na.rm = TRUE), 1, 0)
+  )
+
+summary(data$littlelittle_time)
+summary(data$manylittle_time)
+summary(data$littlemuch_time)
+summary(data$manymuch_time)
+
+#change NAs to 0s
+data <- data %>%
+  mutate(
+    littlelittle_time = ifelse(is.na(littlelittle_time), 0, littlelittle_time),
+    manylittle_time = ifelse(is.na(manylittle_time), 0, manylittle_time),
+    littlemuch_time = ifelse(is.na(littlemuch_time), 0, littlemuch_time),
+    manymuch_time = ifelse(is.na(manymuch_time), 0, manymuch_time)
+  )
+
+# data <- data %>%
+#   mutate(
+#     median_value = quantile(total_much_time[total_much_time > 0], probs = 0.5, na.rm = TRUE),  # Compute median excluding zeros
+#     much_time_category = case_when(
+#       total_much_time == 0 ~ 0,  # Keep zeros as 0
+#       total_much_time > median_value ~ 1,  # Top 50% -> 1
+#       total_much_time <= median_value ~ -1  # Bottom 50% -> -1
+#     )
+#   )
+# data <- data %>%
+#   mutate(
+#     median_value = quantile(total_little_time[total_little_time > 0], probs = 0.5, na.rm = TRUE),  # Compute median excluding zeros
+#     little_time_category = case_when(
+#       total_little_time == 0 ~ 0,  # Keep zeros as 0
+#       total_little_time > median_value ~ 1,  # Top 50% -> 1
+#       total_little_time <= median_value ~ -1  # Bottom 50% -> -1
+#     )
+#   )
+# 
+# summary(data$much_time_category)
+# summary(data$little_time_category)
+```
+
+Save the data
+```{r}
+save(data, file = "../Data/PISAdata.RData")
+```
+
+

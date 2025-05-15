@@ -1,0 +1,6 @@
+"0","dataTIMSS <- dataTIMSS %>%"
+"0","  group_by(item_id) %>% #this makes sure that the median of that item will be taken "
+"0","  mutate(response_time = ifelse(is.na(response_time) & item_score > 0, # test"
+"0","                                median(response_time, na.rm = TRUE), # test = yes"
+"0","                                response_time)) %>% # test = no"
+"0","  ungroup()"

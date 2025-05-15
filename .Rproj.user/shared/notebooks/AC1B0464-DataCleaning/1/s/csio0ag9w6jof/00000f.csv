@@ -1,0 +1,2 @@
+"0","data <- data %>% "
+"0","  mutate(person_id = paste(CNTSCHID, CNTSTUID, sep = ""_""))"

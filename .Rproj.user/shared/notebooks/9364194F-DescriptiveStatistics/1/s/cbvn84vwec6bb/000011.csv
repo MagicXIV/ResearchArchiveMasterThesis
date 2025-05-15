@@ -1,0 +1,8 @@
+"0","#Mean & SDs of all plausible values (PV1-PV5)"
+"0","meanPV <- data %>%"
+"0","  filter(!is.na(PV1), !is.na(PV2), !is.na(PV3), !is.na(PV4), !is.na(PV5)) %>%"
+"0","  group_by(whichData, Set) %>%"
+"0","  summarise(meanPV = mean(c_across(starts_with(""PV"")), na.rm = TRUE),"
+"0","            sdPV = sd(c_across(starts_with(""PV"")), na.rm = TRUE),"
+"0","            .groups = ""drop"")"
+"0","meanPV"
