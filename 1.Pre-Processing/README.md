@@ -22,3 +22,5 @@ to the data in the main Data folder to be used for the data modelling.
 
 The code (DataCleaning.Rmd) and the README.md file are human-generated.
 The data in the IntermediateData folder are project-generated. 
+
+Please note: The file TIMSSMeantime.RData in the \1.Pre-Processing\IntermediateData is not available on the Github repository due to the file size being too large. However, this file can be created by running the DataCleaning.Rmd file from the \1.Pre-Processing\Scripts folder. The TIMSSMeantime.RData file is not needed to run either the DataModelling.Rmd file from the Scripts folder or the DescriptiveStatistics.Rmd file from the \2.Post-Processing\Output folder.  

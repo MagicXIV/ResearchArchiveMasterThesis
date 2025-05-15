@@ -41,8 +41,7 @@ in the Master Thesis. These are the plots, and the Means & SDs.
 └── README.md  
   
 The code (DescriptiveStatistics.Rmd) and the README.md file are human-generated. 
-The output in the Output folder and the PNG files in the SEMModelGraph folder are 
-project-generated. 
+The output in the Output folder is project-generated. 
 
 The PNG plots in the SEMModelGraph folder were created using the website 
 https://app.diagrams.net/  

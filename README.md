@@ -84,8 +84,10 @@ https://app.diagrams.net/
 The files to adapt the plots end with .drawio in the same folder and can be 
 opened using the website, or their desktop appplication. 
 
-This research archive is available at https://github.com/MagicXIV/ResearchArchiveMasterThesis.git
-This site will be maintained for at least a month by the main researcher (contact details below). The archive is publically available.
+This research archive is available at https://github.com/MagicXIV/ResearchArchiveMasterThesis.git  
+This site will be maintained for at least a month by the main researcher (contact details below). The archive is publically available.  
+
+Please note: The file TIMSSMeantime.RData in the \1.Pre-Processing\IntermediateData is not available on the Github repository due to the file size being too large. However, this file can be created by running the DataCleaning.Rmd file from the \1.Pre-Processing\Scripts folder. The TIMSSMeantime.RData file is not needed to run either the DataModelling.Rmd file from the Scripts folder or the DescriptiveStatistics.Rmd file from the \2.Post-Processing\Output folder.  
 
 ## License 
   
